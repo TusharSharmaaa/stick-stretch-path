@@ -149,7 +149,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 <div className="absolute inset-0 flex items-center justify-center">
                   <div className="transform skew-x-12 flex items-center gap-2">
                     <Trophy className="w-4 h-4 text-yellow-400" />
-                    <span className="font-bold text-sm text-yellow-400">ACHIEV</span>
+                    <span className="font-bold text-sm text-yellow-400">ACHIEVE</span>
                   </div>
                 </div>
               </button>

@@ -20,12 +20,13 @@ import {
   getStats,
   saveStats,
   hasSeenTutorial,
-  markTutorialSeen
+  markTutorialSeen,
+  saveDailyChallenges
 } from './utils/storage';
 import { SKINS, AD_COIN_REWARD } from './constants';
 import { initAudio, startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from './utils/audio';
 import { initializeAchievements, checkAchievements } from './utils/achievements';
-import { generateDailyChallenges, updateDailyChallengeProgress } from './utils/dailyChallenges';
+import { generateDailyChallenges } from './utils/dailyChallenges';
 
 function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -69,6 +70,42 @@ function App() {
       startBackgroundMusic(true);
     }
     
+    // Check for pending achievement notifications (when returning to menu)
+    const pendingAch = localStorage.getItem('stick-stretch-pending-achievements');
+    if (pendingAch) {
+      const pendingIds = JSON.parse(pendingAch);
+      if (pendingIds.length > 0) {
+        const achievements = initializeAchievements();
+        const newlyUnlocked = achievements.filter(a => pendingIds.includes(a.id) && a.unlocked);
+        if (newlyUnlocked.length > 0) {
+          // Show notifications after a short delay
+          newlyUnlocked.forEach((ach, i) => {
+            setTimeout(() => {
+              setNotification({ text: `Achievement Unlocked: ${ach.name}`, type: 'achievement' });
+              setTimeout(() => setNotification(null), 3000);
+            }, 500 + (i * 500));
+          });
+          // Clear pending
+          localStorage.removeItem('stick-stretch-pending-achievements');
+        }
+      }
+    }
+    
+    // Check for pending challenge notifications
+    const pendingCh = localStorage.getItem('stick-stretch-pending-challenges');
+    if (pendingCh) {
+      const pendingChallenges = JSON.parse(pendingCh);
+      if (pendingChallenges.length > 0) {
+        pendingChallenges.forEach((ch: { id: string; reward: number }, i: number) => {
+          setTimeout(() => {
+            setNotification({ text: `Daily Challenge Complete! +${ch.reward} coins`, type: 'challenge' });
+            setTimeout(() => setNotification(null), 3000);
+          }, 500 + (i * 500));
+        });
+        localStorage.removeItem('stick-stretch-pending-challenges');
+      }
+    }
+    
     console.log("Game Loaded: Enhanced Features");
   }, []);
 
@@ -103,6 +140,7 @@ function App() {
     setScore(0);
     setIsReviving(false);
     setCurrentGameStats({ perfects: 0, combo: 0, coinsCollected: 0 });
+    setNotification(null); // Clear any notifications when starting game
     setGameState(GameState.PLAYING);
   };
 
@@ -137,36 +175,35 @@ function App() {
     });
     setAchievements(achResult.achievements);
     
-    // Show achievement notifications
+    // Unlock achievement skins (silently, no notification here)
+    achResult.newlyUnlocked.forEach(ach => {
+      if (ach.id === 'perfect_10' && !unlockedSkins.includes('achievement_perfect10')) {
+        const newSkins = [...unlockedSkins, 'achievement_perfect10'];
+        setUnlockedSkins(newSkins);
+        saveUnlockedSkins(newSkins);
+      }
+      if (ach.id === 'games_100' && !unlockedSkins.includes('achievement_100games')) {
+        const newSkins = [...unlockedSkins, 'achievement_100games'];
+        setUnlockedSkins(newSkins);
+        saveUnlockedSkins(newSkins);
+      }
+    });
+    
+    // Store newly unlocked achievements to show on menu return
     if (achResult.newlyUnlocked.length > 0) {
-      achResult.newlyUnlocked.forEach((ach, i) => {
-        setTimeout(() => {
-          setNotification({ text: `Achievement: ${ach.name}`, type: 'achievement' });
-          setTimeout(() => setNotification(null), 3000);
-        }, i * 500);
-      });
-      
-      // Unlock achievement skins
-      achResult.newlyUnlocked.forEach(ach => {
-        if (ach.id === 'perfect_10' && !unlockedSkins.includes('achievement_perfect10')) {
-          const newSkins = [...unlockedSkins, 'achievement_perfect10'];
-          setUnlockedSkins(newSkins);
-          saveUnlockedSkins(newSkins);
-        }
-        if (ach.id === 'games_100' && !unlockedSkins.includes('achievement_100games')) {
-          const newSkins = [...unlockedSkins, 'achievement_100games'];
-          setUnlockedSkins(newSkins);
-          saveUnlockedSkins(newSkins);
-        }
-      });
+      // Store in a way that can be checked when returning to menu
+      const stored = localStorage.getItem('stick-stretch-pending-achievements');
+      const pending = stored ? JSON.parse(stored) : [];
+      const newPending = [...pending, ...achResult.newlyUnlocked.map(a => a.id)];
+      localStorage.setItem('stick-stretch-pending-achievements', JSON.stringify([...new Set(newPending)]));
     }
     
     // Update daily challenges
-    const updatedChallenges = [...dailyChallenges];
-    let challengeCompleted = false;
+    let updatedChallenges = [...dailyChallenges];
+    const completedChallenges: Array<{ id: string; reward: number }> = [];
     
-    updatedChallenges.forEach((ch, i) => {
-      if (ch.completed) return;
+    updatedChallenges = updatedChallenges.map(ch => {
+      if (ch.completed) return ch;
       
       let progress = ch.progress;
       if (ch.description.includes('perfect')) {
@@ -181,17 +218,38 @@ function App() {
         progress += 1;
       }
       
-      const result = updateDailyChallengeProgress(ch.id, progress, updatedChallenges);
-      if (result.completed && !challengeCompleted) {
-        challengeCompleted = true;
-        setNotification({ text: `Challenge Complete! +${ch.reward} coins`, type: 'challenge' });
-        setTimeout(() => setNotification(null), 3000);
-        const rewardCoins = coins + ch.reward;
-        setCoins(rewardCoins);
-        saveCoins(rewardCoins);
+      const newProgress = Math.min(progress, ch.target);
+      const wasCompleted = ch.completed;
+      const nowCompleted = newProgress >= ch.target;
+      
+      if (nowCompleted && !wasCompleted) {
+        completedChallenges.push({ id: ch.id, reward: ch.reward });
       }
+      
+      return {
+        ...ch,
+        progress: newProgress,
+        completed: nowCompleted || ch.completed,
+      };
     });
+    
+    // Save updated challenges
+    saveDailyChallenges(updatedChallenges);
     setDailyChallenges(updatedChallenges);
+    
+    // Show notifications for completed challenges (store to show on menu return)
+    if (completedChallenges.length > 0) {
+      const stored = localStorage.getItem('stick-stretch-pending-challenges');
+      const pending = stored ? JSON.parse(stored) : [];
+      const newPending = [...pending, ...completedChallenges];
+      localStorage.setItem('stick-stretch-pending-challenges', JSON.stringify(newPending));
+      
+      // Award coins immediately
+      const totalReward = completedChallenges.reduce((sum, c) => sum + c.reward, 0);
+      const rewardCoins = coins + totalReward;
+      setCoins(rewardCoins);
+      saveCoins(rewardCoins);
+    }
     
     // Increment death count for interstitial logic
     const newDeaths = deathCount + 1;
@@ -329,7 +387,42 @@ function App() {
             score={score}
             bestScore={bestScore}
             onRetry={handleStartGame}
-            onHome={() => setGameState(GameState.MENU)}
+            onHome={() => {
+              setGameState(GameState.MENU);
+              // Check for pending achievements when returning to menu
+              const pendingAch = localStorage.getItem('stick-stretch-pending-achievements');
+              if (pendingAch) {
+                const pendingIds = JSON.parse(pendingAch);
+                if (pendingIds.length > 0) {
+                  const achievements = initializeAchievements();
+                  const newlyUnlocked = achievements.filter(a => pendingIds.includes(a.id) && a.unlocked);
+                  if (newlyUnlocked.length > 0) {
+                    newlyUnlocked.forEach((ach, i) => {
+                      setTimeout(() => {
+                        setNotification({ text: `Achievement Unlocked: ${ach.name}`, type: 'achievement' });
+                        setTimeout(() => setNotification(null), 3000);
+                      }, 500 + (i * 500));
+                    });
+                    localStorage.removeItem('stick-stretch-pending-achievements');
+                  }
+                }
+              }
+              
+              // Check for pending challenges
+              const pendingCh = localStorage.getItem('stick-stretch-pending-challenges');
+              if (pendingCh) {
+                const pendingChallenges = JSON.parse(pendingCh);
+                if (pendingChallenges.length > 0) {
+                  pendingChallenges.forEach((ch: { id: string; reward: number }, i: number) => {
+                    setTimeout(() => {
+                      setNotification({ text: `Daily Challenge Complete! +${ch.reward} coins`, type: 'challenge' });
+                      setTimeout(() => setNotification(null), 3000);
+                    }, 1000 + (i * 500));
+                  });
+                  localStorage.removeItem('stick-stretch-pending-challenges');
+                }
+              }
+            }}
             onWatchAd={handleRevive}
             />
         )}
