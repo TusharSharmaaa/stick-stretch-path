@@ -1,0 +1,5 @@
+{
+  "name": "Stick Stretch Path",
+  "description": "A hyper-casual game where you stretch a stick to bridge gaps between platforms. Hold to grow, release to fall.",
+  "requestFramePermissions": []
+}
