@@ -22,7 +22,8 @@ import {
   POWER_UP_DURATIONS,
   PLATFORM_VARIETY_CHANCE,
   MAX_PARTICLES,
-  MAX_FLOATING_TEXTS
+  MAX_FLOATING_TEXTS,
+  MAX_STICK_LENGTH
 } from '../constants';
 import { startGrowSound, stopGrowSound, playStickHit, playSuccess, playFail, playCoin } from '../utils/audio';
 
@@ -90,6 +91,16 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const playerScaleYRef = useRef<number>(1);
   const playerScaleXRef = useRef<number>(1);
   const cameraZoomRef = useRef<number>(1);
+  
+  // Performance optimization: Track last rendered values to avoid unnecessary updates
+  const lastRenderedStateRef = useRef({
+    playerX: 0,
+    playerY: 0,
+    stickX: 0,
+    stickLength: 0,
+    stickRotation: 0,
+    cameraX: 0,
+  });
 
   // React State for rendering
   const [viewState, setViewState] = useState({
@@ -267,6 +278,16 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       stickRotationVelocityRef.current = 0;
       rotationPhaseTimeRef.current = 0;
       
+      // Reset last rendered state
+      lastRenderedStateRef.current = {
+        playerX: targetX,
+        playerY: 0,
+        stickX: stickRef.current.x,
+        stickLength: 0,
+        stickRotation: 0,
+        cameraX: cameraXRef.current,
+      };
+      
       spawnParticles(targetX, 0, 'confetti', 30);
       triggerHaptic([100, 50, 100]);
       
@@ -304,6 +325,20 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     floatingTextsRef.current = [];
     rotationPhaseTimeRef.current = 0;
     cameraZoomRef.current = 1;
+    playerScaleXRef.current = 1;
+    playerScaleYRef.current = 1;
+    powerUpsRef.current.clear();
+    playerTrailRef.current = [];
+    
+    // Reset last rendered state
+    lastRenderedStateRef.current = {
+      playerX: playerRef.current.x,
+      playerY: playerRef.current.y,
+      stickX: stickRef.current.x,
+      stickLength: 0,
+      stickRotation: 0,
+      cameraX: 0,
+    };
 
     updateViewState();
     return () => document.removeEventListener('contextmenu', handleContextMenu);
@@ -519,6 +554,16 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       const growthRate = slowmoActive ? INITIAL_GROWTH_RATE * 0.5 : INITIAL_GROWTH_RATE;
       
       stickRef.current.length += growthRate * safeDt;
+      
+      // Cap stick length and auto-rotate if limit reached
+      if (stickRef.current.length >= MAX_STICK_LENGTH) {
+        stickRef.current.length = MAX_STICK_LENGTH;
+        stateRef.current = PlayerState.ROTATING;
+        if (settings.soundEnabled) stopGrowSound();
+        stickRotationVelocityRef.current = 0;
+        rotationPhaseTimeRef.current = 0;
+      }
+      
       stickJitter = Math.sin(timeRef.current * 60) * 3;
       
       playerScaleYRef.current = 0.95;
@@ -730,19 +775,41 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         }
     }
 
-    if (needsUpdate || stickJitter !== 0) {
+    // Performance optimization: Only update state if values changed significantly or forced update
+    const currentState = {
+      playerX: playerRef.current.x,
+      playerY: playerRef.current.y,
+      stickX: stickRef.current.x,
+      stickLength: stickRef.current.length,
+      stickRotation: stickRef.current.rotation,
+      cameraX: cameraXRef.current,
+    };
+    
+    const hasSignificantChange = 
+      needsUpdate ||
+      stickJitter !== 0 ||
+      Math.abs(currentState.playerX - lastRenderedStateRef.current.playerX) > 0.5 ||
+      Math.abs(currentState.playerY - lastRenderedStateRef.current.playerY) > 0.5 ||
+      Math.abs(currentState.stickX - lastRenderedStateRef.current.stickX) > 0.5 ||
+      Math.abs(currentState.stickLength - lastRenderedStateRef.current.stickLength) > 0.5 ||
+      Math.abs(currentState.stickRotation - lastRenderedStateRef.current.stickRotation) > 0.1 ||
+      Math.abs(currentState.cameraX - lastRenderedStateRef.current.cameraX) > 0.5;
+    
+    if (hasSignificantChange) {
+      lastRenderedStateRef.current = currentState;
+      
       const activePowerUps = Array.from(powerUpsRef.current.entries())
         .filter(([_, p]) => p.active)
         .map(([type, _]) => type);
       
       setViewState(prev => ({
         ...prev,
-        playerX: playerRef.current.x,
-        playerY: playerRef.current.y,
-        stickX: stickRef.current.x,
-        stickLength: stickRef.current.length,
-        stickRotation: stickRef.current.rotation,
-        cameraX: cameraXRef.current,
+        playerX: currentState.playerX,
+        playerY: currentState.playerY,
+        stickX: currentState.stickX,
+        stickLength: currentState.stickLength,
+        stickRotation: currentState.stickRotation,
+        cameraX: currentState.cameraX,
         cameraZoom: cameraZoomRef.current,
         platforms: platformsRef.current,
         particles: particlesRef.current,

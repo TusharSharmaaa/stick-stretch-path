@@ -30,6 +30,7 @@ export const GAP_VARIANCE_INCREASE = 20;
 export const PLAYER_SIZE = 30;
 export const STICK_WIDTH = 6; // Thicker stick to match bigger blocks
 export const GAME_HEIGHT_OFFSET = 300; // Where the ground line is from bottom
+export const MAX_STICK_LENGTH = 800; // Maximum stick length before auto-rotation
 
 // Monetization
 export const AD_COIN_REWARD = 50;

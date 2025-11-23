@@ -34,6 +34,7 @@ function App() {
   const [bestScore, setBestScore] = useState(0);
   const [coins, setCoins] = useState(0);
   const [isReviving, setIsReviving] = useState(false);
+  const [gameSessionKey, setGameSessionKey] = useState(0); // Force remount on retry
   
   // Ad State
   const [activeOverlayAd, setActiveOverlayAd] = useState<AdType | null>(null);
@@ -141,6 +142,7 @@ function App() {
     setIsReviving(false);
     setCurrentGameStats({ perfects: 0, combo: 0, coinsCollected: 0 });
     setNotification(null); // Clear any notifications when starting game
+    setGameSessionKey(prev => prev + 1); // Force component remount
     setGameState(GameState.PLAYING);
   };
 
@@ -336,7 +338,7 @@ function App() {
         {/* Persistent Game Layer */}
         {gameState !== GameState.MENU && (
             <StickStretchGame 
-            key="game-session"
+            key={`game-session-${gameSessionKey}`}
             skinColor={currentSkinColor}
             onScore={setScore}
             onGameOver={handleGameOver}
@@ -350,6 +352,7 @@ function App() {
 
         {/* HUD Layer */}
         {gameState === GameState.PLAYING && (
+            <>
             <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start pointer-events-none z-10 pt-[max(1rem,env(safe-area-inset-top))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
             <div className="bg-black/50 backdrop-blur-md px-6 py-2 rounded-xl border border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]">
                 <span className="text-4xl font-black italic text-cyan-400 drop-shadow-[0_0_5px_rgba(34,211,238,0.8)]">{score}</span>
@@ -359,6 +362,17 @@ function App() {
                 <span className="font-bold text-white text-xl">{coins}</span>
             </div>
             </div>
+            {/* Back Button */}
+            <button
+                onClick={() => setGameState(GameState.MENU)}
+                className="absolute top-[max(4rem,calc(1rem+env(safe-area-inset-top)+3rem))] right-[max(1rem,env(safe-area-inset-right))] z-20 bg-black/60 backdrop-blur-md px-4 py-2 rounded-lg border border-slate-600 hover:border-slate-500 transition-colors flex items-center gap-2 pointer-events-auto"
+            >
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span className="text-white font-bold text-sm">BACK</span>
+            </button>
+            </>
         )}
 
         {/* Menus */}
