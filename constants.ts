@@ -77,6 +77,6 @@ export const ACHIEVEMENTS = [
   { id: 'perfect_100', name: 'Perfectionist', description: 'Get 100 perfect landings total', target: 100 },
 ];
 
-// Particle limits for performance
-export const MAX_PARTICLES = 100;
-export const MAX_FLOATING_TEXTS = 20;
+// Particle limits for performance (reduced for mobile optimization)
+export const MAX_PARTICLES = 50; // Reduced from 100 for better mobile performance
+export const MAX_FLOATING_TEXTS = 10; // Reduced from 20 for better mobile performance

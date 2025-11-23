@@ -101,6 +101,10 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     stickRotation: 0,
     cameraX: 0,
   });
+  
+  // Throttle state updates for better performance (but keep responsive during critical states)
+  const stateUpdateFrameSkipRef = useRef<number>(0);
+  const STATE_UPDATE_INTERVAL = 1; // Update every frame for smoothness (reduced from 2)
 
   // React State for rendering
   const [viewState, setViewState] = useState({
@@ -121,7 +125,6 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     backgroundHue: 0,
     playerScaleX: 1,
     playerScaleY: 1,
-    stickJitter: 0,
     bgDecor: [] as DecorObject[],
     isFever: false,
     isPaused: false,
@@ -165,10 +168,12 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
 
   const spawnParticles = (x: number, y: number, type: 'spark' | 'dust' | 'confetti', count: number) => {
-    // Performance: Limit particles
+    // Performance: Limit particles and reduce count on mobile
     const currentCount = particlesRef.current.length;
     const maxToAdd = Math.max(0, MAX_PARTICLES - currentCount);
-    const actualCount = Math.min(count, maxToAdd);
+    // Reduce particle count for better performance (50% reduction)
+    const reducedCount = Math.floor(count * 0.5);
+    const actualCount = Math.min(reducedCount, maxToAdd);
     
     for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
@@ -198,8 +203,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const initDecor = () => {
     const bg: DecorObject[] = [];
     
-    // Background Pillars
-    for(let i=0; i<15; i++) {
+    // Background Pillars (reduced from 15 to 8 for performance)
+    for(let i=0; i<8; i++) {
       bg.push({
         id: i + 500,
         x: Math.random() * 2500,
@@ -213,8 +218,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       });
     }
 
-    // Surreal Flux Lines
-    for(let i=0; i<15; i++) {
+    // Surreal Flux Lines (reduced from 15 to 8 for performance)
+    for(let i=0; i<8; i++) {
         bg.push({
             id: i,
             x: Math.random() * 2000,
@@ -228,8 +233,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         });
     }
 
-    // Geometric Shapes
-    for(let i=0; i<5; i++) {
+    // Geometric Shapes (reduced from 5 to 3 for performance)
+    for(let i=0; i<3; i++) {
         bg.push({
             id: i + 100,
             x: Math.random() * 2000,
@@ -243,8 +248,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         });
     }
 
-    // Dust Particles
-    for(let i=0; i<20; i++) {
+    // Dust Particles (reduced from 20 to 10 for performance)
+    for(let i=0; i<10; i++) {
         bg.push({
             id: i + 200,
             x: Math.random() * 2000,
@@ -423,7 +428,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       coins: platformType === 'coin' ? coins : undefined,
     };
 
-    if (platformsRef.current.length > 5) {
+    // Keep only 4 platforms for better performance (reduced from 5)
+    if (platformsRef.current.length > 4) {
       platformsRef.current.shift();
     }
     
@@ -485,38 +491,51 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       }
     });
     
-    // Update player trail
+    // Update player trail (reduced for performance)
     playerTrailRef.current = playerTrailRef.current
       .map(t => ({ ...t, life: t.life - safeDt * 2 }))
       .filter(t => t.life > 0);
     
-    // Add to trail
-    if (stateRef.current === PlayerState.WALKING || stateRef.current === PlayerState.IDLE) {
+    // Add to trail (reduced frequency for performance)
+    if ((stateRef.current === PlayerState.WALKING || stateRef.current === PlayerState.IDLE) && Math.random() < 0.5) {
       playerTrailRef.current.push({
         x: playerRef.current.x,
         y: playerRef.current.y,
         life: 0.5,
       });
-      // Limit trail length
-      if (playerTrailRef.current.length > 10) {
+      // Limit trail length (reduced from 10 to 5 for performance)
+      if (playerTrailRef.current.length > 5) {
         playerTrailRef.current.shift();
       }
     }
 
     const state = stateRef.current;
     let needsUpdate = false;
-    let stickJitter = 0;
 
-    playerScaleXRef.current = playerScaleXRef.current + (1 - playerScaleXRef.current) * 10 * safeDt;
-    playerScaleYRef.current = playerScaleYRef.current + (1 - playerScaleYRef.current) * 10 * safeDt;
+    // Optimize player scale interpolation - only update if needed
+    const scaleXDiff = Math.abs(1 - playerScaleXRef.current);
+    const scaleYDiff = Math.abs(1 - playerScaleYRef.current);
+    if (scaleXDiff > 0.01) {
+      playerScaleXRef.current = playerScaleXRef.current + (1 - playerScaleXRef.current) * 10 * safeDt;
+      needsUpdate = true;
+    }
+    if (scaleYDiff > 0.01) {
+      playerScaleYRef.current = playerScaleYRef.current + (1 - playerScaleYRef.current) * 10 * safeDt;
+      needsUpdate = true;
+    }
 
-    // --- Cinematic Camera Zoom ---
+    // --- Cinematic Camera Zoom (optimized for performance) ---
     let targetZoom = 1.0;
     if (state === PlayerState.GROWING) targetZoom = 0.95; 
     else if (state === PlayerState.WALKING) targetZoom = 1.05; 
     else targetZoom = 1.0;
     
-    cameraZoomRef.current = cameraZoomRef.current + (targetZoom - cameraZoomRef.current) * 2 * safeDt;
+    // Only update zoom if there's a significant change to reduce calculations
+    const zoomDiff = Math.abs(targetZoom - cameraZoomRef.current);
+    if (zoomDiff > 0.01) {
+      cameraZoomRef.current = cameraZoomRef.current + (targetZoom - cameraZoomRef.current) * 2 * safeDt;
+      needsUpdate = true;
+    }
 
     platformsRef.current.forEach(p => {
       if (p.isMoving && p.baseX !== undefined && p.moveSpeed && p.moveAmplitude) {
@@ -528,24 +547,35 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     });
 
     if (particlesRef.current.length > 0) {
+      // More efficient particle update with early exit
+      const beforeLength = particlesRef.current.length;
       particlesRef.current = particlesRef.current.filter(p => {
         p.x += p.vx * safeDt;
         p.y += p.vy * safeDt;
         p.vy += PARTICLE_GRAVITY * safeDt;
         p.vx -= p.vx * PARTICLE_DRAG * safeDt;
         p.life -= safeDt * 1.5;
-        return p.life > 0;
+        // Remove if dead or off-screen
+        return p.life > 0 && p.y > -100 && p.y < 600;
       });
-      needsUpdate = true;
+      // Only update if particles changed
+      if (particlesRef.current.length !== beforeLength) {
+        needsUpdate = true;
+      }
     }
 
     if (floatingTextsRef.current.length > 0) {
+      const beforeLength = floatingTextsRef.current.length;
       floatingTextsRef.current = floatingTextsRef.current.filter(t => {
         t.y += t.velocityY * safeDt;
         t.life -= safeDt * 0.8;
-        return t.life > 0;
+        // Remove if dead or off-screen
+        return t.life > 0 && t.y < 600;
       });
-      needsUpdate = true;
+      // Only update if texts changed
+      if (floatingTextsRef.current.length !== beforeLength) {
+        needsUpdate = true;
+      }
     }
 
     if (state === PlayerState.GROWING) {
@@ -564,8 +594,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         rotationPhaseTimeRef.current = 0;
       }
       
-      stickJitter = Math.sin(timeRef.current * 60) * 3;
-      
+      // Stick grows straight and simple - no jitter
       playerScaleYRef.current = 0.95;
       playerScaleXRef.current = 1.05;
       needsUpdate = true;
@@ -665,7 +694,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       playerScaleYRef.current = 1 + Math.sin(timeRef.current * 20) * 0.1;
       playerScaleXRef.current = 1 - Math.sin(timeRef.current * 20) * 0.05;
 
-      if (Math.random() < 0.1) spawnParticles(playerRef.current.x, 0, 'dust', 1);
+      // Reduced particle spawn frequency for performance (from 0.1 to 0.05)
+      if (Math.random() < 0.05) spawnParticles(playerRef.current.x, 0, 'dust', 1);
 
       const stickX = stickRef.current.x;
       const stickLen = stickRef.current.length;
@@ -785,17 +815,29 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       cameraX: cameraXRef.current,
     };
     
+    // More sensitive change detection during GROWING for smooth stick growth
+    const isGrowing = state === PlayerState.GROWING;
+    const positionThreshold = isGrowing ? 0.1 : 0.5; // More sensitive during growing
+    const stickLengthThreshold = isGrowing ? 0.1 : 0.5; // More sensitive during growing
+    
     const hasSignificantChange = 
       needsUpdate ||
-      stickJitter !== 0 ||
-      Math.abs(currentState.playerX - lastRenderedStateRef.current.playerX) > 0.5 ||
-      Math.abs(currentState.playerY - lastRenderedStateRef.current.playerY) > 0.5 ||
-      Math.abs(currentState.stickX - lastRenderedStateRef.current.stickX) > 0.5 ||
-      Math.abs(currentState.stickLength - lastRenderedStateRef.current.stickLength) > 0.5 ||
+      Math.abs(currentState.playerX - lastRenderedStateRef.current.playerX) > positionThreshold ||
+      Math.abs(currentState.playerY - lastRenderedStateRef.current.playerY) > positionThreshold ||
+      Math.abs(currentState.stickX - lastRenderedStateRef.current.stickX) > positionThreshold ||
+      Math.abs(currentState.stickLength - lastRenderedStateRef.current.stickLength) > stickLengthThreshold ||
       Math.abs(currentState.stickRotation - lastRenderedStateRef.current.stickRotation) > 0.1 ||
-      Math.abs(currentState.cameraX - lastRenderedStateRef.current.cameraX) > 0.5;
+      Math.abs(currentState.cameraX - lastRenderedStateRef.current.cameraX) > positionThreshold;
     
-    if (hasSignificantChange) {
+    // Update state more frequently during critical states (GROWING, ROTATING) for smoothness
+    const isCriticalState = state === PlayerState.GROWING || state === PlayerState.ROTATING || state === PlayerState.WALKING;
+    const updateInterval = isCriticalState ? 1 : STATE_UPDATE_INTERVAL;
+    
+    stateUpdateFrameSkipRef.current++;
+    const shouldUpdateState = hasSignificantChange && (stateUpdateFrameSkipRef.current >= updateInterval || needsUpdate);
+    
+    if (shouldUpdateState) {
+      stateUpdateFrameSkipRef.current = 0;
       lastRenderedStateRef.current = currentState;
       
       const activePowerUps = Array.from(powerUpsRef.current.entries())
@@ -814,7 +856,6 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         platforms: platformsRef.current,
         particles: particlesRef.current,
         floatingTexts: floatingTextsRef.current,
-        stickJitter,
         combo: comboRef.current,
         bgDecor: bgDecorRef.current,
         isFever: comboRef.current >= 3,
@@ -882,14 +923,23 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
       {/* Main Scaled Game Container for Camera Zoom */}
       <div 
-        className="absolute inset-0 transition-transform duration-300 ease-out"
-        style={{ transform: `scale(${viewState.cameraZoom})`, transformOrigin: 'center center' }}
+        className="absolute inset-0"
+        style={{ 
+          transform: `translate3d(0, 0, 0) scale(${viewState.cameraZoom})`, 
+          transformOrigin: 'center center',
+          willChange: 'transform'
+        }}
       >
         {/* Background Decor Layer - Surreal 3D Flux */}
         <div className="absolute inset-0 pointer-events-none" style={{ transformStyle: 'preserve-3d' }}>
             {viewState.bgDecor.map(d => {
                 const parallaxX = (d.x - viewState.cameraX * d.speed) % 2000;
                 const renderX = parallaxX < 0 ? parallaxX + 2000 : parallaxX;
+                
+                // Skip rendering if off-screen for performance
+                if (renderX < -100 || renderX > window.innerWidth + 100) {
+                  return null;
+                }
                 
                 if (d.type === 'flux') {
                     return (
@@ -901,9 +951,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                                 top: `${d.y}px`,
                                 height: `${d.size}px`,
                                 color: d.color,
-                                // 3D Transform
-                                transform: `rotateX(45deg) rotateZ(${d.rotation}deg) scaleY(${stateRef.current === PlayerState.GROWING ? 1.5 : 1})`,
-                                transition: 'transform 0.2s',
+                                // 3D Transform with GPU acceleration
+                                transform: `translate3d(0, 0, 0) rotateX(45deg) rotateZ(${d.rotation}deg) scaleY(${stateRef.current === PlayerState.GROWING ? 1.5 : 1})`,
+                                willChange: 'transform, left',
                                 boxShadow: `0 0 15px ${d.color}`
                             }}
                         />
@@ -922,7 +972,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                                 height: `${300 + Math.random() * 200}px`, // Fixed height variation
                                 bottom: 0,
                                 opacity: d.opacity,
-                                transform: `translateZ(-500px)`, // Push back
+                                transform: `translate3d(0, 0, -500px)`, // Push back with GPU acceleration
+                                willChange: 'transform, left'
                             }}
                         />
                     );
@@ -940,7 +991,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                             backgroundColor: d.type === 'geo' ? 'transparent' : d.color,
                             opacity: d.opacity,
                             boxShadow: d.type === 'geo' ? 'none' : `0 0 ${d.size}px ${d.color}`,
-                            transform: d.type === 'geo' ? `rotate(${d.rotation}deg)` : 'none',
+                            transform: d.type === 'geo' ? `translate3d(0, 0, 0) rotate(${d.rotation}deg)` : 'translate3d(0, 0, 0)',
                             willChange: 'transform, left'
                         }}
                     />
@@ -957,20 +1008,29 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             style={{ backgroundPositionX: `${-viewState.cameraX * 0.5}px` }}
         />
 
-        {/* Dynamic Vertical Lines for Depth Perception */}
+        {/* Dynamic Vertical Lines for Depth Perception (reduced from 12 to 8 for performance) */}
         <div className="absolute inset-0 pointer-events-none">
-            {Array.from({ length: 12 }).map((_, i) => {
+            {Array.from({ length: 8 }).map((_, i) => {
                const spacing = 300;
-               const totalWidth = spacing * 12;
+               const totalWidth = spacing * 8;
                // Parallax factor 0.5 to match grid
                const xPos = ((i * spacing) - (viewState.cameraX * 0.5)) % totalWidth;
                const renderX = xPos < 0 ? xPos + totalWidth : xPos;
+               
+               // Skip rendering if off-screen
+               if (renderX < -50 || renderX > window.innerWidth + 50) {
+                 return null;
+               }
                
                return (
                  <div 
                     key={`v-depth-${i}`}
                     className="vertical-depth-marker"
-                    style={{ left: `${renderX}px` }}
+                    style={{ 
+                      left: `${renderX}px`,
+                      willChange: 'left',
+                      transform: 'translate3d(0, 0, 0)'
+                    }}
                  />
                );
             })}
@@ -1001,7 +1061,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             return (
                 <div
                 key={platform.id}
-                className={`absolute transition-transform box-border group ${
+                className={`absolute box-border group ${
                   isBreakable && platform.breakCountdown !== undefined && platform.breakCountdown < 0.5 ? 'opacity-50' : ''
                 }`}
                 style={{
@@ -1009,8 +1069,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                     bottom: '0px',
                     width: `${platform.width}px`,
                     height: `${PLATFORM_HEIGHT}px`,
-                    willChange: 'transform, left',
-                    transform: 'translateZ(0)',
+                    willChange: 'transform',
+                    transform: 'translate3d(0, 0, 0)',
                 }}
                 >
                 {/* 3D Side Face */}
@@ -1053,51 +1113,67 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             );
             })}
 
-            {viewState.particles.map(p => (
-            <div 
-                key={p.id}
-                className="absolute rounded-full z-20"
-                style={{
-                left: `${getRenderX(p.x)}px`,
-                bottom: `${PLATFORM_HEIGHT + p.y}px`,
-                width: `${p.size}px`,
-                height: `${p.size}px`,
-                backgroundColor: p.color,
-                opacity: p.life,
-                boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
-                willChange: 'left, bottom, opacity'
-                }}
-            />
-            ))}
+            {viewState.particles.map(p => {
+              const renderX = getRenderX(p.x);
+              // Skip rendering if off-screen for performance
+              if (renderX < -50 || renderX > window.innerWidth + 50 || p.y < -100 || p.y > 600) {
+                return null;
+              }
+              return (
+                <div 
+                    key={p.id}
+                    className="absolute rounded-full z-20"
+                    style={{
+                    left: `${renderX}px`,
+                    bottom: `${PLATFORM_HEIGHT + p.y}px`,
+                    width: `${p.size}px`,
+                    height: `${p.size}px`,
+                    backgroundColor: p.color,
+                    opacity: p.life,
+                    boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+                    willChange: 'transform, opacity',
+                    transform: 'translate3d(0, 0, 0)'
+                    }}
+                />
+              );
+            })}
 
             {/* Floating Text Overlay */}
-            {viewState.floatingTexts.map(t => (
+            {viewState.floatingTexts.map(t => {
+              const renderX = getRenderX(t.x);
+              // Skip rendering if off-screen or too faded
+              if (renderX < -100 || renderX > window.innerWidth + 100 || t.life < 0.1) {
+                return null;
+              }
+              return (
                 <div
                     key={t.id}
                     className="absolute z-50 font-black italic whitespace-nowrap text-outline"
                     style={{
-                        left: `${getRenderX(t.x)}px`,
+                        left: `${renderX}px`,
                         bottom: `${PLATFORM_HEIGHT + t.y}px`,
-                        transform: 'translateX(-50%)',
+                        transform: 'translate3d(-50%, 0, 0)',
                         fontSize: '24px',
                         color: t.color,
                         opacity: t.life,
                         textShadow: `0 0 5px ${t.color}`,
+                        willChange: 'transform, opacity'
                     }}
                 >
                     {t.text}
                 </div>
-            ))}
+              );
+            })}
 
-            {/* 3D Stick */}
+            {/* 3D Stick - Straight and simple, no jitter */}
             <div
             className="absolute origin-bottom-left z-10 rounded-full overflow-hidden"
             style={{
-                left: `${getRenderX(viewState.stickX) + viewState.stickJitter}px`, 
+                left: `${getRenderX(viewState.stickX)}px`, 
                 bottom: `${PLATFORM_HEIGHT}px`,
                 width: `${STICK_WIDTH}px`,
                 height: `${viewState.stickLength}px`,
-                transform: `rotate(${viewState.stickRotation}deg)`,
+                transform: `translate3d(0, 0, 0) rotate(${viewState.stickRotation}deg)`,
                 willChange: 'transform, height',
                 boxShadow: `0 0 ${stateRef.current === PlayerState.GROWING ? '30px' : '15px'} rgba(253,224,71,0.8)`,
                 background: '#facc15'
@@ -1106,8 +1182,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                 <div className={`w-full h-full bg-white`} />
             </div>
 
-            {/* Player Trail */}
-            {viewState.playerTrail.map((trail, i) => (
+            {/* Player Trail (limited to last 5 for performance) */}
+            {viewState.playerTrail.slice(-5).map((trail, i) => (
               <div
                 key={`trail-${i}`}
                 className={`absolute rounded-sm z-15 ${skinColor}`}
@@ -1117,26 +1193,27 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                   width: `${PLAYER_SIZE * 0.6}px`,
                   height: `${PLAYER_SIZE * 0.6}px`,
                   opacity: trail.life * 0.3,
-                  transform: 'translateY(0px)',
+                  transform: 'translate3d(0, 0, 0)',
                   transformOrigin: 'bottom center',
+                  willChange: 'transform, opacity'
                 }}
               />
             ))}
             
             <div
-            className={`absolute rounded-sm transition-transform shadow-[0_0_20px_rgba(255,255,255,0.8)] z-20 ${skinColor}`}
+            className={`absolute rounded-sm shadow-[0_0_20px_rgba(255,255,255,0.8)] z-20 ${skinColor}`}
             style={{
                 left: `${getRenderX(viewState.playerX)}px`,
                 bottom: `${PLATFORM_HEIGHT - viewState.playerY}px`,
                 width: `${PLAYER_SIZE}px`,
                 height: `${PLAYER_SIZE}px`,
                 transform: `
-                    translateY(${viewState.playerY > 0 ? 0 : 0}px)
+                    translate3d(0, ${viewState.playerY > 0 ? 0 : 0}px, 0)
                     rotate(${viewState.playerY > 0 ? viewState.playerY : 0}deg) 
                     scale(${viewState.playerScaleX}, ${viewState.playerScaleY})
                 `,
                 transformOrigin: 'bottom center',
-                willChange: 'transform, left, bottom'
+                willChange: 'transform'
             }}
             >
             <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_5px_white]" />
@@ -1145,8 +1222,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         </div>
       </div>
 
-      <div className="absolute bottom-[max(3rem,env(safe-area-inset-bottom))] left-0 w-full text-center pointer-events-none z-40 transition-transform duration-100 origin-bottom"
-           style={{ transform: stateRef.current === PlayerState.GROWING ? 'scale(1.2)' : 'scale(1)' }}>
+      <div className="absolute bottom-[max(3rem,env(safe-area-inset-bottom))] left-0 w-full text-center pointer-events-none z-40 origin-bottom"
+           style={{ 
+             transform: `translate3d(0, 0, 0) scale(${stateRef.current === PlayerState.GROWING ? 1.2 : 1})`,
+             willChange: 'transform'
+           }}>
         {stateRef.current === PlayerState.IDLE && (
             <span className="text-cyan-200 font-bold text-sm bg-black/40 backdrop-blur-md px-6 py-2 rounded-full border border-cyan-400/50 animate-pulse tracking-widest shadow-[0_0_20px_rgba(34,211,238,0.3)]">
                 HOLD TO GROW

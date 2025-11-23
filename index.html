@@ -31,6 +31,9 @@
         -webkit-user-select: none;
         background-color: #020617;
         font-family: 'Courier New', Courier, monospace;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+        text-rendering: optimizeSpeed;
       }
       
       #root {
@@ -80,13 +83,15 @@
             linear-gradient(rgba(56, 189, 248, 0.15) 1px, transparent 1px),
             linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px);
         background-size: 80px 80px;
-        transform: perspective(300px) rotateX(60deg);
+        transform: translate3d(0, 0, 0) perspective(300px) rotateX(60deg);
         transform-origin: center top;
         opacity: 0.3;
         bottom: -30%; 
         left: -50%;
         pointer-events: none;
         mask-image: linear-gradient(to bottom, transparent 0%, black 20%, transparent 90%);
+        will-change: transform, background-position;
+        backface-visibility: hidden;
       }
 
       /* Ceiling Grid - Mirrored for Tunnel Effect */
@@ -98,13 +103,15 @@
             linear-gradient(rgba(139, 92, 246, 0.15) 1px, transparent 1px),
             linear-gradient(90deg, rgba(139, 92, 246, 0.05) 1px, transparent 1px);
         background-size: 120px 120px;
-        transform: perspective(400px) rotateX(-60deg);
+        transform: translate3d(0, 0, 0) perspective(400px) rotateX(-60deg);
         transform-origin: center bottom;
         opacity: 0.2;
         top: -45%; 
         left: -50%;
         pointer-events: none;
         mask-image: linear-gradient(to top, transparent 0%, black 20%, transparent 90%);
+        will-change: transform, background-position;
+        backface-visibility: hidden;
       }
 
       /* Vertical Depth Lines / Background Pillars */
@@ -116,6 +123,8 @@
         border-right: 1px solid rgba(0, 0, 0, 0.2);
         pointer-events: none;
         z-index: 0;
+        will-change: transform, left;
+        backface-visibility: hidden;
       }
 
       /* Vertical Depth Markers for Parallax */
@@ -127,6 +136,8 @@
         background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.08) 50%, transparent 100%);
         pointer-events: none;
         z-index: 0;
+        will-change: transform, left;
+        backface-visibility: hidden;
       }
 
       /* Tech Texture for Platforms */
@@ -150,6 +161,8 @@
         pointer-events: none;
         z-index: 50;
         opacity: 0.1;
+        will-change: opacity;
+        backface-visibility: hidden;
       }
 
       @keyframes shake {
@@ -188,6 +201,8 @@
         opacity: 0.3;
         mix-blend-mode: screen;
         pointer-events: none;
+        will-change: transform, left;
+        backface-visibility: hidden;
       }
     </style>
 <link rel="stylesheet" href="/index.css">
