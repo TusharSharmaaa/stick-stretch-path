@@ -86,6 +86,25 @@ const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, 
               </div>
             </button>
             <button
+              onClick={async () => {
+                const shareData = {
+                  title: 'Stick Stretch Path',
+                  text: `I scored ${score} points! Can you beat my score?`,
+                  url: window.location.href,
+                };
+                try {
+                  if (navigator.share) {
+                    await navigator.share(shareData);
+                  } else {
+                    // Fallback: copy to clipboard
+                    await navigator.clipboard.writeText(`I scored ${score} points in Stick Stretch Path! Can you beat my score?`);
+                    alert('Score copied to clipboard!');
+                  }
+                } catch (err) {
+                  // User cancelled or error occurred
+                  console.log('Share cancelled or failed');
+                }
+              }}
               className="h-12 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg transform -skew-x-12 font-bold text-slate-300 hover:text-white transition-colors flex items-center justify-center"
             >
               <div className="transform skew-x-12 flex items-center gap-2">

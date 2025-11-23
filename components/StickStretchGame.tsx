@@ -598,10 +598,10 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
              if (shieldActive) {
                powerUpsRef.current.delete('shield');
                spawnFloatingText(playerRef.current.x, 150, 'SHIELD!', '#60a5fa');
-               // Continue as if successful
+               // Continue as if successful - WALKING state will handle movement to target platform
                stateRef.current = PlayerState.WALKING;
              } else {
-               stateRef.current = PlayerState.WALKING;
+               stateRef.current = PlayerState.FALLING;
                comboRef.current = 0;
                onGameEvent?.({ type: 'combo', value: 0 });
              }
@@ -611,7 +611,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       needsUpdate = true;
     } 
     else if (state === PlayerState.WALKING) {
-      playerRef.current.x += PLAYER_WALK_SPEED * safeDt;
+      // Magnet power-up: pull player slightly toward target platform
+      const magnetActive = powerUpsRef.current.get('magnet')?.active;
+      const walkSpeed = magnetActive ? PLAYER_WALK_SPEED * 1.2 : PLAYER_WALK_SPEED;
+      
+      playerRef.current.x += walkSpeed * safeDt;
       
       playerScaleYRef.current = 1 + Math.sin(timeRef.current * 20) * 0.1;
       playerScaleXRef.current = 1 - Math.sin(timeRef.current * 20) * 0.05;
@@ -628,7 +632,13 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
       if (targetPlatform) {
         const stickTipX = stickX + stickLen;
-        const tolerance = getDynamicTolerance(targetPlatform);
+        let tolerance = getDynamicTolerance(targetPlatform);
+        
+        // Magnet power-up increases tolerance
+        if (magnetActive) {
+          tolerance += 10;
+        }
+        
         const landed = stickTipX >= targetPlatform.x - tolerance && stickTipX <= (targetPlatform.x + targetPlatform.width + tolerance);
         
         if (landed) {
@@ -671,6 +681,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                currentPlat.breakCountdown -= safeDt;
                if (currentPlat.breakCountdown <= 0) {
                  spawnParticles(currentPlat.x + currentPlat.width / 2, 0, 'dust', 20);
+                 // Mark as broken for rendering
+                 currentPlat.type = 'normal';
+                 currentPlat.breakCountdown = -1;
                }
              }
           }
@@ -908,7 +921,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             if (isOffScreen) return null;
             
             // Skip rendering if breakable and broken
-            if (platform.type === 'breakable' && platform.breakCountdown !== undefined && platform.breakCountdown <= 0) {
+            if (platform.type === 'breakable' && platform.breakCountdown !== undefined && platform.breakCountdown < 0) {
               return null;
             }
             
@@ -1013,7 +1026,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             <div
             className="absolute origin-bottom-left z-10 rounded-full overflow-hidden"
             style={{
-                left: `${getRenderX(viewState.stickX) + (Math.random() * viewState.stickJitter)}px`, 
+                left: `${getRenderX(viewState.stickX) + viewState.stickJitter}px`, 
                 bottom: `${PLATFORM_HEIGHT}px`,
                 width: `${STICK_WIDTH}px`,
                 height: `${viewState.stickLength}px`,

@@ -113,9 +113,13 @@ export const playFail = () => {
   
   noise.connect(env);
   env.connect(gainNode);
-  env.gain.value = 0.4;
   
-  noise.start();
+  const now = audioCtx.currentTime;
+  env.gain.setValueAtTime(0.4, now);
+  env.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+  
+  noise.start(now);
+  noise.stop(now + 0.3);
 };
 
 export const playCoin = () => {

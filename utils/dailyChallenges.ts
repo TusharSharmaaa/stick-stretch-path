@@ -11,7 +11,19 @@ const CHALLENGE_TEMPLATES = [
 
 export const generateDailyChallenges = (): DailyChallenge[] => {
   const existing = getDailyChallenges();
-  if (existing) return existing;
+  if (existing) {
+    // Check if any challenges have expired
+    const now = Date.now();
+    const allExpired = existing.every(ch => ch.expiresAt < now);
+    if (!allExpired) {
+      // Filter out expired challenges and return valid ones
+      const valid = existing.filter(ch => ch.expiresAt >= now);
+      if (valid.length > 0) {
+        return valid;
+      }
+    }
+    // If all expired or none valid, generate new ones
+  }
   
   // Pick 3 random challenges
   const shuffled = [...CHALLENGE_TEMPLATES].sort(() => Math.random() - 0.5);
