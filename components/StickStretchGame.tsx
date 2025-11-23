@@ -1,6 +1,6 @@
 
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { PlayerState, Platform, Stick, Player, Particle, FloatingText } from '../types';
+import { PlayerState, Platform, Stick, Player, Particle, FloatingText, PowerUpType, PlatformType } from '../types';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { 
   INITIAL_GROWTH_RATE, 
@@ -18,7 +18,11 @@ import {
   STICK_BOUNCE_DAMPING,
   STOP_BOUNCE_THRESHOLD,
   PARTICLE_GRAVITY,
-  PARTICLE_DRAG
+  PARTICLE_DRAG,
+  POWER_UP_DURATIONS,
+  PLATFORM_VARIETY_CHANCE,
+  MAX_PARTICLES,
+  MAX_FLOATING_TEXTS
 } from '../constants';
 import { startGrowSound, stopGrowSound, playStickHit, playSuccess, playFail, playCoin } from '../utils/audio';
 
@@ -29,6 +33,8 @@ interface StickStretchGameProps {
   onCoinCollected: (amount: number) => void;
   isReviving?: boolean;
   onReviveComplete?: () => void;
+  onGameEvent?: (event: { type: 'perfect' | 'combo'; value: number }) => void;
+  settings?: { soundEnabled: boolean; musicEnabled: boolean; hapticsEnabled: boolean };
 }
 
 interface DecorObject {
@@ -49,7 +55,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   onGameOver,
   onCoinCollected,
   isReviving = false,
-  onReviveComplete
+  onReviveComplete,
+  onGameEvent,
+  settings = { soundEnabled: true, musicEnabled: true, hapticsEnabled: true }
 }) => {
   // Game Logic State
   const playerRef = useRef<Player>({ x: 0, y: 0 });
@@ -71,6 +79,12 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const stickRotationVelocityRef = useRef<number>(0);
   const hueRotationRef = useRef<number>(0);
   const rotationPhaseTimeRef = useRef<number>(0);
+  
+  // New Features Refs
+  const powerUpsRef = useRef<Map<PowerUpType, { active: boolean; timeLeft: number }>>(new Map());
+  const isPausedRef = useRef<boolean>(false);
+  const perfectCountRef = useRef<number>(0);
+  const playerTrailRef = useRef<Array<{ x: number; y: number; life: number }>>([]);
 
   // Animation Refs
   const playerScaleYRef = useRef<number>(1);
@@ -99,15 +113,35 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     stickJitter: 0,
     bgDecor: [] as DecorObject[],
     isFever: false,
+    isPaused: false,
+    activePowerUps: [] as PowerUpType[],
+    playerTrail: [] as Array<{ x: number; y: number; life: number }>,
   });
 
   const triggerHaptic = (pattern: number | number[]) => {
-    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+    if (settings.hapticsEnabled && typeof navigator !== 'undefined' && navigator.vibrate) {
       navigator.vibrate(pattern);
     }
   };
+  
+  const activatePowerUp = (type: PowerUpType) => {
+    powerUpsRef.current.set(type, {
+      active: true,
+      timeLeft: POWER_UP_DURATIONS[type],
+    });
+    spawnFloatingText(playerRef.current.x, 150, type.toUpperCase(), '#fcd34d');
+  };
+  
+  const togglePause = () => {
+    isPausedRef.current = !isPausedRef.current;
+    setViewState(prev => ({ ...prev, isPaused: isPausedRef.current }));
+  };
 
   const spawnFloatingText = (x: number, y: number, text: string, color: string) => {
+    // Performance: Limit floating texts
+    if (floatingTextsRef.current.length >= MAX_FLOATING_TEXTS) {
+      floatingTextsRef.current.shift();
+    }
     floatingTextsRef.current.push({
       id: Math.random(),
       x,
@@ -120,7 +154,12 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
 
   const spawnParticles = (x: number, y: number, type: 'spark' | 'dust' | 'confetti', count: number) => {
-    for (let i = 0; i < count; i++) {
+    // Performance: Limit particles
+    const currentCount = particlesRef.current.length;
+    const maxToAdd = Math.max(0, MAX_PARTICLES - currentCount);
+    const actualCount = Math.min(count, maxToAdd);
+    
+    for (let i = 0; i < actualCount; i++) {
       const angle = Math.random() * Math.PI * 2;
       const speed = type === 'spark' ? Math.random() * 300 + 100 : Math.random() * 100 + 50;
       
@@ -296,24 +335,41 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const spawnNextPlatform = () => {
     const lastPlatform = platformsRef.current[platformsRef.current.length - 1];
     const difficulty = Math.floor(scoreRef.current / 5);
-    const gapBase = Math.min(MAX_GAP, MIN_GAP + Math.random() * 100 + (difficulty * 10));
-    const gap = Math.max(MIN_GAP, Math.min(MAX_GAP, gapBase + (Math.random() * 40 - 20)));
     
-    let width = Math.max(MIN_PLATFORM_WIDTH, MAX_PLATFORM_WIDTH - (difficulty * 5));
+    // Better gap calculation - prevent impossible gaps
+    const gapBase = Math.min(MAX_GAP, MIN_GAP + Math.random() * 80 + (difficulty * 8));
+    const gap = Math.max(MIN_GAP, Math.min(MAX_GAP, gapBase + (Math.random() * 30 - 15)));
+    
+    let width = Math.max(MIN_PLATFORM_WIDTH, MAX_PLATFORM_WIDTH - (difficulty * 4));
     let isMoving = false;
     let moveSpeed = 0;
     let moveAmplitude = 0;
+    let platformType: PlatformType = 'normal';
+    let coins = 0;
+
+    // Platform variety
+    if (scoreRef.current >= 5 && Math.random() < PLATFORM_VARIETY_CHANCE.coin) {
+      platformType = 'coin';
+      coins = Math.floor(Math.random() * 3) + 1;
+    } else if (scoreRef.current >= 10 && Math.random() < PLATFORM_VARIETY_CHANCE.ice) {
+      platformType = 'ice';
+      width = Math.max(60, width - 10); // Ice platforms are smaller
+    } else if (scoreRef.current >= 15 && Math.random() < PLATFORM_VARIETY_CHANCE.bouncy) {
+      platformType = 'bouncy';
+    } else if (scoreRef.current >= 20 && Math.random() < PLATFORM_VARIETY_CHANCE.breakable) {
+      platformType = 'breakable';
+    }
 
     if (scoreRef.current >= 5 && Math.random() < 0.3) {
-      width = 70;
+      width = Math.max(60, width - 20);
     } else {
-      width = Math.max(MIN_PLATFORM_WIDTH, width + (Math.random() * 20 - 10));
+      width = Math.max(MIN_PLATFORM_WIDTH, width + (Math.random() * 15 - 7.5));
     }
 
     if (scoreRef.current >= 20 && Math.random() < 0.2) {
       isMoving = true;
-      moveSpeed = 45;
-      moveAmplitude = 40;
+      moveSpeed = 40;
+      moveAmplitude = 35;
     }
 
     const baseX = lastPlatform.x + lastPlatform.width + gap;
@@ -328,6 +384,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       moveSpeed,
       moveAmplitude,
       movePhase: Math.random() * Math.PI * 2,
+      type: platformType,
+      coins: platformType === 'coin' ? coins : undefined,
     };
 
     if (platformsRef.current.length > 5) {
@@ -340,9 +398,15 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     platformsRef.current.push(newPlatform);
   };
 
-  const getDynamicTolerance = () => {
-    const reduction = Math.floor(scoreRef.current / 10) * 0.5;
-    return Math.max(4, 6 - reduction);
+  const getDynamicTolerance = (platform?: Platform) => {
+    let baseReduction = Math.floor(scoreRef.current / 10) * 0.5;
+    
+    // Ice platforms have smaller tolerance
+    if (platform?.type === 'ice') {
+      baseReduction += 2;
+    }
+    
+    return Math.max(3, 6 - baseReduction);
   };
 
   const checkSuccess = () => {
@@ -367,9 +431,42 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
 
   const gameLoop = useCallback((dt: number) => {
+    // Pause check
+    if (isPausedRef.current) {
+      return;
+    }
+    
     const safeDt = Math.min(dt, 0.05);
     timeRef.current += safeDt;
     hueRotationRef.current = (hueRotationRef.current + 5 * safeDt) % 360;
+    
+    // Update power-ups
+    powerUpsRef.current.forEach((powerUp, type) => {
+      if (powerUp.active) {
+        powerUp.timeLeft -= safeDt;
+        if (powerUp.timeLeft <= 0) {
+          powerUpsRef.current.delete(type);
+        }
+      }
+    });
+    
+    // Update player trail
+    playerTrailRef.current = playerTrailRef.current
+      .map(t => ({ ...t, life: t.life - safeDt * 2 }))
+      .filter(t => t.life > 0);
+    
+    // Add to trail
+    if (stateRef.current === PlayerState.WALKING || stateRef.current === PlayerState.IDLE) {
+      playerTrailRef.current.push({
+        x: playerRef.current.x,
+        y: playerRef.current.y,
+        life: 0.5,
+      });
+      // Limit trail length
+      if (playerTrailRef.current.length > 10) {
+        playerTrailRef.current.shift();
+      }
+    }
 
     const state = stateRef.current;
     let needsUpdate = false;
@@ -417,7 +514,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     }
 
     if (state === PlayerState.GROWING) {
-      stickRef.current.length += INITIAL_GROWTH_RATE * safeDt;
+      // Slow motion power-up
+      const slowmoActive = powerUpsRef.current.get('slowmo')?.active;
+      const growthRate = slowmoActive ? INITIAL_GROWTH_RATE * 0.5 : INITIAL_GROWTH_RATE;
+      
+      stickRef.current.length += growthRate * safeDt;
       stickJitter = Math.sin(timeRef.current * 60) * 3;
       
       playerScaleYRef.current = 0.95;
@@ -447,28 +548,63 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
            stickRotationVelocityRef.current = 0;
            rotationPhaseTimeRef.current = 0;
            
-           const result = checkSuccess();
-           if (result && result.success) {
-             stateRef.current = PlayerState.WALKING;
-             if (result.perfect) {
-                comboRef.current += 1;
-                const bonus = comboRef.current >= 3 ? 2 : 1;
-                
-                const perfectLoc = result.target.x + result.target.width / 2;
-                spawnFloatingText(perfectLoc, 100, comboRef.current >= 3 ? 'FEVER!' : 'PERFECT!', comboRef.current >= 3 ? '#fcd34d' : '#bef264');
-                
-                onCoinCollected(bonus);
-                playCoin();
-                triggerHaptic([20, 30, 20]);
-                spawnParticles(perfectLoc, 0, 'confetti', 20 + (comboRef.current * 5));
+          const result = checkSuccess();
+          if (result && result.success) {
+            const targetPlatform = result.target;
+            
+            // Handle platform types
+            if (targetPlatform.type === 'breakable') {
+              targetPlatform.breakCountdown = 1.0; // Will break after player walks off
+            } else if (targetPlatform.type === 'coin' && targetPlatform.coins) {
+              const doubleCoins = powerUpsRef.current.get('doubleCoins')?.active;
+              const coinAmount = doubleCoins ? targetPlatform.coins * 2 : targetPlatform.coins;
+              onCoinCollected(coinAmount);
+              spawnFloatingText(targetPlatform.x + targetPlatform.width / 2, 100, `+${coinAmount}`, '#fcd34d');
+              playCoin();
+            }
+            
+            stateRef.current = PlayerState.WALKING;
+            if (result.perfect) {
+               perfectCountRef.current += 1;
+               comboRef.current += 1;
+               const bonus = comboRef.current >= 3 ? 2 : 1;
+               const doubleCoins = powerUpsRef.current.get('doubleCoins')?.active;
+               const finalBonus = doubleCoins ? bonus * 2 : bonus;
+               
+               const perfectLoc = result.target.x + result.target.width / 2;
+               spawnFloatingText(perfectLoc, 100, comboRef.current >= 3 ? 'FEVER!' : 'PERFECT!', comboRef.current >= 3 ? '#fcd34d' : '#bef264');
+               
+               onCoinCollected(finalBonus);
+               onGameEvent?.({ type: 'perfect', value: perfectCountRef.current });
+               playCoin();
+               triggerHaptic([20, 30, 20]);
+               spawnParticles(perfectLoc, 0, 'confetti', 20 + (comboRef.current * 5));
+               
+               // Random power-up chance on perfect (5%)
+               if (Math.random() < 0.05) {
+                 const powerUpTypes: PowerUpType[] = ['slowmo', 'doubleCoins', 'magnet'];
+                 const randomType = powerUpTypes[Math.floor(Math.random() * powerUpTypes.length)];
+                 activatePowerUp(randomType);
+               }
              } else {
                 const landingLoc = stickRef.current.x + stickRef.current.length;
                 spawnFloatingText(landingLoc, 50, 'NICE', '#fff');
                 comboRef.current = 0;
+                onGameEvent?.({ type: 'combo', value: 0 });
              }
            } else {
-             stateRef.current = PlayerState.WALKING;
-             comboRef.current = 0;
+             // Shield power-up protection
+             const shieldActive = powerUpsRef.current.get('shield')?.active;
+             if (shieldActive) {
+               powerUpsRef.current.delete('shield');
+               spawnFloatingText(playerRef.current.x, 150, 'SHIELD!', '#60a5fa');
+               // Continue as if successful
+               stateRef.current = PlayerState.WALKING;
+             } else {
+               stateRef.current = PlayerState.WALKING;
+               comboRef.current = 0;
+               onGameEvent?.({ type: 'combo', value: 0 });
+             }
            }
         }
       }
@@ -492,10 +628,16 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
       if (targetPlatform) {
         const stickTipX = stickX + stickLen;
-        const tolerance = getDynamicTolerance();
+        const tolerance = getDynamicTolerance(targetPlatform);
         const landed = stickTipX >= targetPlatform.x - tolerance && stickTipX <= (targetPlatform.x + targetPlatform.width + tolerance);
         
         if (landed) {
+          // Bouncy platform gives extra boost
+          if (targetPlatform.type === 'bouncy') {
+            velocityYRef.current = -200; // Small bounce
+            spawnParticles(targetPlatform.x + targetPlatform.width / 2, 0, 'spark', 15);
+          }
+          
           destinationX = targetPlatform.x + targetPlatform.width - PLAYER_SIZE - 5;
           success = true;
         } else {
@@ -523,9 +665,22 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
           const currentPlat = platformsRef.current.find(p => p.x + p.width > playerRef.current.x);
           if (currentPlat) {
              stickRef.current.x = currentPlat.x + currentPlat.width;
+             
+             // Break breakable platform
+             if (currentPlat.type === 'breakable' && currentPlat.breakCountdown !== undefined) {
+               currentPlat.breakCountdown -= safeDt;
+               if (currentPlat.breakCountdown <= 0) {
+                 spawnParticles(currentPlat.x + currentPlat.width / 2, 0, 'dust', 20);
+               }
+             }
           }
           stickRef.current.length = 0;
           stickRef.current.rotation = 0;
+          
+          // Update combo event
+          if (comboRef.current > 0) {
+            onGameEvent?.({ type: 'combo', value: comboRef.current });
+          }
         } else {
            stateRef.current = PlayerState.FALLING;
            spawnFloatingText(playerRef.current.x, 80, failReason, '#f87171');
@@ -563,6 +718,10 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     }
 
     if (needsUpdate || stickJitter !== 0) {
+      const activePowerUps = Array.from(powerUpsRef.current.entries())
+        .filter(([_, p]) => p.active)
+        .map(([type, _]) => type);
+      
       setViewState(prev => ({
         ...prev,
         playerX: playerRef.current.x,
@@ -579,26 +738,43 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         combo: comboRef.current,
         bgDecor: bgDecorRef.current,
         isFever: comboRef.current >= 3,
+        isPaused: isPausedRef.current,
+        activePowerUps,
+        playerTrail: playerTrailRef.current,
       }));
     }
-  }, [onScore, onGameOver, onCoinCollected]); 
+  }, [onScore, onGameOver, onCoinCollected, onGameEvent]); 
 
-  useGameLoop(gameLoop, stateRef.current !== PlayerState.GAME_OVER);
+  useGameLoop(gameLoop, stateRef.current !== PlayerState.GAME_OVER && !isPausedRef.current);
 
+  const lastTapRef = useRef<number>(0);
+  
   const handlePointerDown = (e: React.SyntheticEvent) => {
-    e.preventDefault(); // Critical for Android touch
-    if (stateRef.current === PlayerState.IDLE) {
+    e.preventDefault();
+    
+    // Double tap to pause (when not in IDLE or GROWING state)
+    if (stateRef.current !== PlayerState.IDLE && stateRef.current !== PlayerState.GROWING && !isPausedRef.current) {
+      const now = Date.now();
+      if (now - lastTapRef.current < 300) {
+        togglePause();
+        lastTapRef.current = 0;
+        return;
+      }
+      lastTapRef.current = now;
+    }
+    
+    if (stateRef.current === PlayerState.IDLE && !isPausedRef.current) {
       stateRef.current = PlayerState.GROWING;
-      startGrowSound();
+      if (settings.soundEnabled) startGrowSound();
       triggerHaptic(10);
     }
   };
 
   const handlePointerUp = (e: React.SyntheticEvent) => {
-    e.preventDefault(); // Critical for Android touch
-    if (stateRef.current === PlayerState.GROWING) {
+    e.preventDefault();
+    if (stateRef.current === PlayerState.GROWING && !isPausedRef.current) {
       stateRef.current = PlayerState.ROTATING;
-      stopGrowSound();
+      if (settings.soundEnabled) stopGrowSound();
       triggerHaptic(15);
       stickRotationVelocityRef.current = 0; 
       rotationPhaseTimeRef.current = 0;
@@ -731,10 +907,23 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             const isOffScreen = getRenderX(platform.x + platform.width) < -200;
             if (isOffScreen) return null;
             
+            // Skip rendering if breakable and broken
+            if (platform.type === 'breakable' && platform.breakCountdown !== undefined && platform.breakCountdown <= 0) {
+              return null;
+            }
+            
+            const platformType = platform.type || 'normal';
+            const isIce = platformType === 'ice';
+            const isBouncy = platformType === 'bouncy';
+            const isCoin = platformType === 'coin';
+            const isBreakable = platformType === 'breakable';
+            
             return (
                 <div
                 key={platform.id}
-                className={`absolute transition-transform box-border group`}
+                className={`absolute transition-transform box-border group ${
+                  isBreakable && platform.breakCountdown !== undefined && platform.breakCountdown < 0.5 ? 'opacity-50' : ''
+                }`}
                 style={{
                     left: `${getRenderX(platform.x)}px`,
                     bottom: '0px',
@@ -747,18 +936,37 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                 {/* 3D Side Face */}
                 <div 
                     className={`absolute top-0 -right-[20px] w-[20px] h-full origin-left transform skew-y-[-45deg]
-                    ${platform.isTarget ? 'bg-pink-800' : 'bg-cyan-800'}`}
+                    ${platform.isTarget 
+                      ? isIce ? 'bg-blue-800' : isBouncy ? 'bg-green-800' : isCoin ? 'bg-yellow-800' : isBreakable ? 'bg-orange-800' : 'bg-pink-800'
+                      : 'bg-cyan-800'}`}
                 />
                 
                 {/* Main Front Face */}
                 <div className={`w-full h-full relative z-10 border-t-2 platform-texture shadow-lg
                     ${platform.isTarget 
-                        ? 'bg-gradient-to-b from-pink-600 via-pink-900 to-black border-pink-400 shadow-[0_0_50px_rgba(236,72,153,0.5)]' 
+                        ? isIce 
+                          ? 'bg-gradient-to-b from-blue-500 via-blue-700 to-black border-blue-300 shadow-[0_0_50px_rgba(59,130,246,0.5)]' 
+                          : isBouncy
+                          ? 'bg-gradient-to-b from-green-500 via-green-700 to-black border-green-300 shadow-[0_0_50px_rgba(34,197,94,0.5)]'
+                          : isCoin
+                          ? 'bg-gradient-to-b from-yellow-500 via-yellow-700 to-black border-yellow-300 shadow-[0_0_50px_rgba(234,179,8,0.5)]'
+                          : isBreakable
+                          ? 'bg-gradient-to-b from-orange-500 via-orange-700 to-black border-orange-300 shadow-[0_0_50px_rgba(249,115,22,0.5)]'
+                          : 'bg-gradient-to-b from-pink-600 via-pink-900 to-black border-pink-400 shadow-[0_0_50px_rgba(236,72,153,0.5)]' 
                         : 'bg-gradient-to-b from-cyan-600 via-cyan-900 to-black border-cyan-400 shadow-[0_0_50px_rgba(34,211,238,0.5)]'}
                 `}>
                         <div className="absolute inset-0 bg-gradient-to-tr from-white/10 to-transparent opacity-20" />
                         {platform.isTarget && (
-                            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-pink-300 animate-pulse shadow-[0_0_20px_rgba(236,72,153,1)]" />
+                            <>
+                              <div className={`absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 animate-pulse shadow-[0_0_20px_currentColor] ${
+                                isIce ? 'bg-blue-300' : isBouncy ? 'bg-green-300' : isCoin ? 'bg-yellow-300' : isBreakable ? 'bg-orange-300' : 'bg-pink-300'
+                              }`} />
+                              {isCoin && platform.coins && (
+                                <div className="absolute top-2 left-1/2 -translate-x-1/2 text-yellow-300 font-black text-xs">
+                                  {platform.coins} <span className="text-[8px]">●</span>
+                                </div>
+                              )}
+                            </>
                         )}
                 </div>
                 </div>
@@ -818,6 +1026,23 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                 <div className={`w-full h-full bg-white`} />
             </div>
 
+            {/* Player Trail */}
+            {viewState.playerTrail.map((trail, i) => (
+              <div
+                key={`trail-${i}`}
+                className={`absolute rounded-sm z-15 ${skinColor}`}
+                style={{
+                  left: `${getRenderX(trail.x)}px`,
+                  bottom: `${PLATFORM_HEIGHT - trail.y}px`,
+                  width: `${PLAYER_SIZE * 0.6}px`,
+                  height: `${PLAYER_SIZE * 0.6}px`,
+                  opacity: trail.life * 0.3,
+                  transform: 'translateY(0px)',
+                  transformOrigin: 'bottom center',
+                }}
+              />
+            ))}
+            
             <div
             className={`absolute rounded-sm transition-transform shadow-[0_0_20px_rgba(255,255,255,0.8)] z-20 ${skinColor}`}
             style={{
@@ -853,6 +1078,36 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
           <div className="absolute top-[max(6rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 text-yellow-300 font-black text-xl bg-black/50 px-4 py-1 rounded-lg border border-yellow-400 animate-bounce pointer-events-none z-50">
               FEVER MODE x2
           </div>
+      )}
+      
+      {/* Pause Overlay */}
+      {viewState.isPaused && (
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900/95 border border-cyan-500/50 rounded-2xl p-8 text-center">
+            <h3 className="text-3xl font-black text-cyan-400 mb-4">PAUSED</h3>
+            <p className="text-white/60 text-sm mb-6">Tap to resume</p>
+            <button
+              onClick={togglePause}
+              className="px-6 py-2 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg"
+            >
+              RESUME
+            </button>
+          </div>
+        </div>
+      )}
+      
+      {/* Power-up Indicators */}
+      {viewState.activePowerUps.length > 0 && (
+        <div className="absolute top-[max(8rem,env(safe-area-inset-top))] left-1/2 -translate-x-1/2 flex gap-2 pointer-events-none z-50">
+          {viewState.activePowerUps.map(powerUp => (
+            <div
+              key={powerUp}
+              className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-lg border border-cyan-400/50 text-cyan-300 text-xs font-bold uppercase"
+            >
+              {powerUp === 'slowmo' ? 'SLOW MO' : powerUp === 'doubleCoins' ? '2X COINS' : powerUp === 'magnet' ? 'MAGNET' : 'SHIELD'}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

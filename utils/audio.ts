@@ -2,6 +2,9 @@ let audioCtx: AudioContext | null = null;
 let gainNode: GainNode | null = null;
 let growOsc: OscillatorNode | null = null;
 let growGain: GainNode | null = null;
+let musicGain: GainNode | null = null;
+let musicOsc: OscillatorNode | null = null;
+let musicInterval: number | null = null;
 
 export const initAudio = () => {
   if (!audioCtx) {
@@ -132,4 +135,61 @@ export const playCoin = () => {
   
   osc.start();
   osc.stop(audioCtx.currentTime + 0.1);
+};
+
+export const startBackgroundMusic = (enabled: boolean) => {
+  if (!audioCtx || !gainNode) return;
+  
+  if (musicOsc) {
+    stopBackgroundMusic();
+  }
+  
+  if (!enabled) return;
+  
+  musicGain = audioCtx.createGain();
+  musicGain.connect(gainNode);
+  musicGain.gain.value = 0.05; // Very quiet background
+  
+  let noteIndex = 0;
+  const notes = [261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88]; // C major scale
+  
+  const playNote = () => {
+    if (!audioCtx || !musicGain) return;
+    
+    const osc = audioCtx.createOscillator();
+    const env = audioCtx.createGain();
+    
+    osc.type = 'sine';
+    osc.frequency.value = notes[noteIndex % notes.length];
+    
+    osc.connect(env);
+    env.connect(musicGain);
+    
+    env.gain.setValueAtTime(0, audioCtx.currentTime);
+    env.gain.linearRampToValueAtTime(0.3, audioCtx.currentTime + 0.1);
+    env.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.4);
+    
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.5);
+    
+    noteIndex++;
+  };
+  
+  // Play a note every 2 seconds
+  musicInterval = window.setInterval(playNote, 2000);
+};
+
+export const stopBackgroundMusic = () => {
+  if (musicInterval !== null) {
+    clearInterval(musicInterval);
+    musicInterval = null;
+  }
+  musicGain = null;
+  musicOsc = null;
+};
+
+export const setSoundEnabled = (enabled: boolean) => {
+  if (gainNode) {
+    gainNode.gain.value = enabled ? 0.2 : 0;
+  }
 };

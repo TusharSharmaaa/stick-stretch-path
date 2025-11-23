@@ -18,6 +18,7 @@ export const useGameLoop = (
 
   useEffect(() => {
     if (isRunning) {
+      previousTimeRef.current = undefined;
       requestRef.current = requestAnimationFrame(animate);
     } else {
       previousTimeRef.current = undefined;

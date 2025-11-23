@@ -41,4 +41,41 @@ export const SKINS: Skin[] = [
   { id: 'neon', name: 'Neon Blue', color: 'bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]', cost: 100 },
   { id: 'gold', name: 'Midas Gold', color: 'bg-yellow-400 shadow-[0_0_15px_rgba(250,204,21,0.8)]', cost: 250 },
   { id: 'purple', name: 'Void Purple', color: 'bg-purple-600 border-2 border-white', cost: 500 },
+  { id: 'green', name: 'Emerald', color: 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]', cost: 300 },
+  { id: 'orange', name: 'Fire Orange', color: 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.8)]', cost: 400 },
+  { id: 'rainbow', name: 'Rainbow', color: 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500', cost: 1000 },
+  { id: 'achievement_perfect10', name: 'Perfect Master', color: 'bg-yellow-300 shadow-[0_0_20px_rgba(253,224,71,1)]', cost: 0 }, // Unlock via achievement
+  { id: 'achievement_100games', name: 'Veteran', color: 'bg-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.8)]', cost: 0 },
 ];
+
+// Power-ups
+export const POWER_UP_DURATIONS = {
+  slowmo: 5, // seconds
+  doubleCoins: 10, // seconds
+  magnet: 8, // seconds
+  shield: 1, // uses (not time-based)
+};
+
+// Platform variety spawn rates
+export const PLATFORM_VARIETY_CHANCE = {
+  ice: 0.15, // 15% chance after score 10
+  bouncy: 0.1, // 10% chance after score 15
+  breakable: 0.12, // 12% chance after score 20
+  coin: 0.2, // 20% chance after score 5
+};
+
+// Achievement definitions
+export const ACHIEVEMENTS = [
+  { id: 'first_perfect', name: 'First Perfect', description: 'Land your first perfect landing', target: 1 },
+  { id: 'perfect_10', name: 'Perfect 10', description: 'Get 10 perfect landings in one game', target: 10 },
+  { id: 'combo_5', name: 'Combo Master', description: 'Reach a 5 combo', target: 5 },
+  { id: 'score_50', name: 'Half Century', description: 'Reach score 50', target: 50 },
+  { id: 'score_100', name: 'Century', description: 'Reach score 100', target: 100 },
+  { id: 'coins_1000', name: 'Rich', description: 'Earn 1000 coins total', target: 1000 },
+  { id: 'games_100', name: 'Dedicated', description: 'Play 100 games', target: 100 },
+  { id: 'perfect_100', name: 'Perfectionist', description: 'Get 100 perfect landings total', target: 100 },
+];
+
+// Particle limits for performance
+export const MAX_PARTICLES = 100;
+export const MAX_FLOATING_TEXTS = 20;

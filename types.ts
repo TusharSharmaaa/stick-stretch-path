@@ -14,6 +14,8 @@ export enum PlayerState {
   GAME_OVER = 'GAME_OVER',
 }
 
+export type PlatformType = 'normal' | 'ice' | 'bouncy' | 'breakable' | 'coin';
+
 export interface Platform {
   id: number;
   x: number;
@@ -25,6 +27,10 @@ export interface Platform {
   moveSpeed?: number;
   moveAmplitude?: number;
   movePhase?: number;
+  // Platform variety
+  type?: PlatformType;
+  breakCountdown?: number; // For breakable platforms
+  coins?: number; // For coin platforms
 }
 
 export interface Stick {
@@ -71,4 +77,43 @@ export interface GameConfig {
   growthRate: number; // pixels per second
   walkSpeed: number; // pixels per second
   tolerance: number; // pixels +/-
+}
+
+export type PowerUpType = 'slowmo' | 'doubleCoins' | 'magnet' | 'shield';
+
+export interface PowerUp {
+  type: PowerUpType;
+  duration: number; // seconds
+  active: boolean;
+  timeLeft: number;
+}
+
+export interface Achievement {
+  id: string;
+  name: string;
+  description: string;
+  unlocked: boolean;
+  unlockedAt?: number; // timestamp
+  progress?: number;
+  target?: number;
+}
+
+export interface GameStats {
+  gamesPlayed: number;
+  totalPerfects: number;
+  totalCoinsEarned: number;
+  averageScore: number;
+  bestCombo: number;
+  totalDistance: number;
+  achievementsUnlocked: number;
+}
+
+export interface DailyChallenge {
+  id: string;
+  description: string;
+  target: number;
+  progress: number;
+  reward: number;
+  completed: boolean;
+  expiresAt: number; // timestamp
 }
