@@ -156,8 +156,8 @@ function App() {
     setCoins(newTotalCoins);
     saveCoins(newTotalCoins);
     
-    // Update statistics
-    const newStats: GameStats = {
+    // Update statistics (achievements count is updated after re-check)
+    const updatedStats: GameStats = {
       gamesPlayed: stats.gamesPlayed + 1,
       totalPerfects: stats.totalPerfects + currentGameStats.perfects,
       totalCoinsEarned: stats.totalCoinsEarned + earnedCoins,
@@ -166,16 +166,22 @@ function App() {
       totalDistance: stats.totalDistance + finalScore * 100, // Approximate
       achievementsUnlocked: stats.achievementsUnlocked,
     };
-    setStats(newStats);
-    saveStats(newStats);
     
     // Check achievements
-    const achResult = checkAchievements(newStats, {
+    const achResult = checkAchievements(updatedStats, {
       score: finalScore,
       perfects: currentGameStats.perfects,
       combo: currentGameStats.combo,
     });
     setAchievements(achResult.achievements);
+    
+    const unlockedAchievements = achResult.achievements.filter(a => a.unlocked).length;
+    const finalStats = {
+      ...updatedStats,
+      achievementsUnlocked: unlockedAchievements,
+    };
+    setStats(finalStats);
+    saveStats(finalStats);
     
     // Unlock achievement skins (silently, no notification here)
     achResult.newlyUnlocked.forEach(ach => {

@@ -41,6 +41,24 @@ const MainMenu: React.FC<MainMenuProps> = ({
 }) => {
   const [activeTab, setActiveTab] = React.useState<'main' | 'shop' | 'stats' | 'achievements' | 'challenges' | 'settings'>('main');
 
+  const formatNumber = (value: number) => value.toLocaleString();
+  const formatDistance = (distance: number) => {
+    if (distance >= 100000) {
+      return `${(distance / 1000).toFixed(1)} km`;
+    }
+    if (distance >= 1000) {
+      return `${(distance / 1000).toFixed(2)} km`;
+    }
+    return `${Math.round(distance)} m`;
+  };
+
+  const unlockedAchievementsCount = stats?.achievementsUnlocked ?? achievements.filter(a => a.unlocked).length;
+  const totalAchievements = achievements.length;
+  const achievementsProgressBase = totalAchievements > 0 ? totalAchievements : 1;
+  const averageCoinsPerGame = stats && stats.gamesPlayed > 0 
+    ? Math.round(stats.totalCoinsEarned / stats.gamesPlayed)
+    : 0;
+
   return (
     <div className="absolute inset-0 bg-[#050510] flex flex-col items-center justify-center overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Background FX */}
@@ -304,36 +322,104 @@ const MainMenu: React.FC<MainMenuProps> = ({
         ) : activeTab === 'stats' ? (
           <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-purple-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
             <div className="p-6 pb-2 flex-none">
-              <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-4">
+              <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-1">
                 <BarChart3 className="w-6 h-6 text-purple-400" /> STATISTICS
               </h2>
+              <p className="text-xs font-semibold text-slate-400 uppercase tracking-[0.3em]">Lifetime performance</p>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-3 pb-4">
-              {stats && (
+            <div className="flex-1 overflow-y-auto px-6 space-y-6 pb-6">
+              {stats ? (
                 <>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase">Games Played</span>
-                    <div className="text-2xl font-black text-white mt-1">{stats.gamesPlayed}</div>
-                  </div>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase">Total Perfects</span>
-                    <div className="text-2xl font-black text-white mt-1">{stats.totalPerfects}</div>
-                  </div>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase">Average Score</span>
-                    <div className="text-2xl font-black text-white mt-1">{Math.round(stats.averageScore)}</div>
-                  </div>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase">Best Combo</span>
-                    <div className="text-2xl font-black text-white mt-1">{stats.bestCombo}</div>
-                  </div>
-                  <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
-                    <span className="text-slate-400 text-xs font-bold uppercase">Total Coins Earned</span>
-                    <div className="text-2xl font-black text-yellow-400 mt-1 flex items-center gap-2">
-                      <Coins className="w-5 h-5" /> {stats.totalCoinsEarned}
+                  <section>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2">Highlights</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="bg-gradient-to-br from-pink-500/10 to-slate-900/60 p-4 rounded-xl border border-pink-500/40">
+                        <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">High Score</span>
+                        <div className="text-3xl font-black text-white mt-1 flex items-center gap-2">
+                          {formatNumber(bestScore)}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Personal best run</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-500/10 to-slate-900/60 p-4 rounded-xl border border-purple-500/40">
+                        <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">Best Combo</span>
+                        <div className="text-3xl font-black text-white mt-1">{formatNumber(stats.bestCombo)}</div>
+                        <p className="text-xs text-slate-400 mt-1">Longest perfect streak</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-yellow-500/10 to-slate-900/60 p-4 rounded-xl border border-yellow-500/40 sm:col-span-2">
+                        <span className="text-slate-300 text-[10px] font-black uppercase tracking-widest">Lifetime Coins</span>
+                        <div className="text-3xl font-black text-yellow-300 mt-1 flex items-center gap-2">
+                          <Coins className="w-6 h-6" /> {formatNumber(stats.totalCoinsEarned)}
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">Total collected from games, challenges, and ads</p>
+                      </div>
                     </div>
-                  </div>
+                  </section>
+
+                  <section>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2">Lifetime Totals</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Games Played</span>
+                        <div className="text-2xl font-black text-white mt-1">{formatNumber(stats.gamesPlayed)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Sessions completed</p>
+                      </div>
+                      <div className="bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Total Perfects</span>
+                        <div className="text-2xl font-black text-white mt-1">{formatNumber(stats.totalPerfects)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Perfect landings hit</p>
+                      </div>
+                      <div className="bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Distance Traveled</span>
+                        <div className="text-2xl font-black text-white mt-1">{formatDistance(stats.totalDistance)}</div>
+                        <p className="text-xs text-slate-500 mt-1">Approx. meters crossed</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2">Efficiency</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Average Score</span>
+                        <div className="text-3xl font-black text-white mt-1">{formatNumber(Math.round(stats.averageScore))}</div>
+                        <p className="text-xs text-slate-500 mt-1">Across all completed runs</p>
+                      </div>
+                      <div className="bg-slate-800/60 p-4 rounded-xl border border-white/5">
+                        <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">Avg Coins / Game</span>
+                        <div className="text-3xl font-black text-yellow-200 mt-1 flex items-center gap-2">
+                          <Coins className="w-5 h-5" /> {formatNumber(averageCoinsPerGame)}
+                        </div>
+                        <p className="text-xs text-slate-500 mt-1">Lifetime earn rate</p>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section>
+                    <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.4em] mb-2">Achievements</p>
+                    <div className="bg-slate-800/70 p-4 rounded-xl border border-purple-500/30">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <span className="text-xs font-bold text-slate-400 uppercase">Unlocked</span>
+                          <div className="text-3xl font-black text-white">
+                            {unlockedAchievementsCount}/{totalAchievements}
+                          </div>
+                        </div>
+                        <Trophy className="w-10 h-10 text-yellow-400" />
+                      </div>
+                      <div className="w-full h-2 bg-slate-900 rounded-full mt-3 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                          style={{ width: `${Math.min(100, (unlockedAchievementsCount / achievementsProgressBase) * 100)}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-400 mt-2">Keep pushing for new milestones to unlock cosmetic rewards.</p>
+                    </div>
+                  </section>
                 </>
+              ) : (
+                <div className="text-center text-slate-400 text-sm">
+                  Play at least one game to start building your stats!
+                </div>
               )}
             </div>
             <div className="p-6 pt-2 flex-none border-t border-white/5">
