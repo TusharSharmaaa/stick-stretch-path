@@ -36,6 +36,11 @@ export const MAX_STICK_LENGTH = 800; // Maximum stick length before auto-rotatio
 export const AD_COIN_REWARD = 40;
 export const INITIAL_COINS = 0;
 
+// External links (update with live URLs when available)
+export const PRIVACY_POLICY_URL = 'https://example.com/privacy';
+export const TERMS_URL = 'https://example.com/terms';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.example.stickstretch';
+
 // Shop / Skins
 export const SKINS: Skin[] = [
   { id: 'default', name: 'Classic Red', color: 'bg-red-500', cost: 0 },

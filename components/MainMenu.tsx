@@ -1,7 +1,7 @@
 
 import React from 'react';
-import { Play, ShoppingBag, Coins, Video, Lock, BarChart3, Trophy, Calendar, Settings, X, Sparkles, Shield } from 'lucide-react';
-import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS } from '../constants';
+import { Play, ShoppingBag, Coins, Video, Lock, BarChart3, Trophy, Calendar, Settings, X, Sparkles, Shield, FileText, Star, ExternalLink } from 'lucide-react';
+import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS, PLAY_STORE_URL } from '../constants';
 import { Achievement, GameStats, DailyChallenge, BoostInventory } from '../types';
 
 interface MainMenuProps {
@@ -53,6 +53,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
 }) => {
   const [activeTab, setActiveTab] = React.useState<'main' | 'shop' | 'stats' | 'achievements' | 'challenges' | 'settings'>('main');
   const [shopCategory, setShopCategory] = React.useState<'skins' | 'boosts'>('skins');
+  const [activeLegalModal, setActiveLegalModal] = React.useState<'privacy' | 'terms' | null>(null);
 
   const formatNumber = (value: number) => value.toLocaleString();
   const formatDistance = (distance: number) => {
@@ -87,6 +88,94 @@ const MainMenu: React.FC<MainMenuProps> = ({
   const equippedBoostDetails = equippedBoosts
     .map(id => SHOP_BOOSTS.find(b => b.id === id))
     .filter((boost): boost is (typeof SHOP_BOOSTS)[number] => Boolean(boost));
+
+  const legalModalContent: Record<'privacy' | 'terms', { title: string; sections: Array<{ heading: string; body: string }> }> = {
+    privacy: {
+      title: 'Privacy Policy',
+      sections: [
+        {
+          heading: 'Data We Collect',
+          body: 'Stick Stretch Path only stores basic gameplay data (scores, coins, unlocked skins) locally on your device. We do not collect personal identifiers or track you across other apps.'
+        },
+        {
+          heading: 'How It Is Used',
+          body: 'Your local data powers features such as leaderboards, achievements, shop unlocks, and saved settings. Nothing is uploaded to external servers.'
+        },
+        {
+          heading: 'Ads & Analytics',
+          body: 'Rewarded and interstitial ads are mock implementations in this build. If real ad networks are enabled later, they will adhere to their published privacy controls.'
+        }
+      ]
+    },
+    terms: {
+      title: 'Terms & Conditions',
+      sections: [
+        {
+          heading: 'Use of the Game',
+          body: 'By playing Stick Stretch Path you agree to use the game for personal entertainment only and to refrain from tampering with the client, assets, or progression systems.'
+        },
+        {
+          heading: 'Virtual Currency',
+          body: 'Coins earned in-game are virtual and have no real-world value. We may adjust prices, rewards, or balance at any time to keep gameplay fair.'
+        },
+        {
+          heading: 'Updates',
+          body: 'Features and content can change frequently. Continued play after updates signifies acceptance of the latest rules and mechanics.'
+        }
+      ]
+    }
+  };
+
+  type LegalLink = {
+    id: 'privacy' | 'terms' | 'rate';
+    label: string;
+    description: string;
+    icon: React.ElementType;
+    url?: string;
+    mode: 'modal' | 'external';
+  };
+
+  const legalLinks: LegalLink[] = [
+    {
+      id: 'privacy',
+      label: 'Privacy Policy',
+      description: 'Understand how we handle your data.',
+      icon: Shield,
+      mode: 'modal'
+    },
+    {
+      id: 'terms',
+      label: 'Terms & Conditions',
+      description: 'Review the rules for using Stick Stretch Path.',
+      icon: FileText,
+      mode: 'modal'
+    },
+    {
+      id: 'rate',
+      label: 'Rate on Play Store',
+      description: 'Enjoying the game? Leave us a review!',
+      url: PLAY_STORE_URL,
+      icon: Star,
+      mode: 'external'
+    }
+  ];
+
+  const handleLegalAction = (link: LegalLink) => {
+    if (link.mode === 'modal') {
+      setActiveLegalModal(link.id);
+      return;
+    }
+    if (link.url) {
+      handleExternalLink(link.url);
+    }
+  };
+
+  const handleExternalLink = (url: string) => {
+    if (!url) return;
+    if (typeof window !== 'undefined') {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   const unlockedAchievementsCount = stats?.achievementsUnlocked ?? achievements.filter(a => a.unlocked).length;
   const totalAchievements = achievements.length;
@@ -780,6 +869,29 @@ const MainMenu: React.FC<MainMenuProps> = ({
                   </button>
                 </div>
               </div>
+              <div className="bg-slate-900/60 p-4 rounded-xl border border-white/5 space-y-3">
+                <div className="text-xs font-black uppercase tracking-[0.3em] text-slate-400">Support</div>
+                {legalLinks.map(link => (
+                  <button
+                    key={link.id}
+                    onClick={() => handleLegalAction(link)}
+                    className="w-full flex items-center justify-between text-left bg-slate-900/40 border border-slate-700 hover:border-cyan-400/60 hover:bg-slate-800/60 transition-colors rounded-xl px-4 py-3 gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <link.icon className="w-5 h-5 text-cyan-300" />
+                      <div>
+                        <div className="font-bold text-white">{link.label}</div>
+                        <div className="text-xs text-slate-400">{link.description}</div>
+                      </div>
+                    </div>
+                    {link.mode === 'external' ? (
+                      <ExternalLink className="w-4 h-4 text-slate-500" />
+                    ) : (
+                      <FileText className="w-4 h-4 text-slate-500" />
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="p-6 pt-2 flex-none border-t border-white/5">
               <button 
@@ -791,6 +903,41 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
           </div>
         ) : null}
+
+        {activeLegalModal && (
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+            <div className="bg-slate-900/95 border border-cyan-500/40 rounded-2xl p-6 max-w-lg w-full relative space-y-4">
+              <button
+                onClick={() => setActiveLegalModal(null)}
+                className="absolute top-4 right-4 text-white/60 hover:text-white"
+                aria-label="Close legal modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <div className="flex items-center gap-3">
+                {activeLegalModal === 'privacy' ? (
+                  <Shield className="w-6 h-6 text-cyan-300" />
+                ) : (
+                  <FileText className="w-6 h-6 text-cyan-300" />
+                )}
+                <h3 className="text-2xl font-black text-white">
+                  {legalModalContent[activeLegalModal].title}
+                </h3>
+              </div>
+              <div className="space-y-4 text-sm text-slate-300 leading-relaxed max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
+                {legalModalContent[activeLegalModal].sections.map(section => (
+                  <div key={section.heading}>
+                    <p className="text-cyan-200 font-semibold mb-1">{section.heading}</p>
+                    <p>{section.body}</p>
+                  </div>
+                ))}
+              </div>
+              <div className="text-xs text-slate-500">
+                Last updated {new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
