@@ -31,6 +31,13 @@ import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS } from './constants';
 import { initAudio, startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from './utils/audio';
 import { initializeAchievements, checkAchievements } from './utils/achievements';
 import { generateDailyChallenges } from './utils/dailyChallenges';
+import { 
+  isNativeAdsSupported, 
+  mountBannerAd, 
+  unmountBannerAd, 
+  showNativeInterstitialAd, 
+  showNativeRewardedAd 
+} from './utils/nativeAds';
 
 function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
@@ -161,7 +168,25 @@ function App() {
   };
 
   // Helper to show ads
+  const nativeAdsAvailable = isNativeAdsSupported();
+
+  useEffect(() => {
+    if (!nativeAdsAvailable) return;
+    mountBannerAd();
+    return () => {
+      unmountBannerAd();
+    };
+  }, [nativeAdsAvailable]);
+
   const showAd = (type: AdType, onComplete: (success: boolean) => void) => {
+    if (nativeAdsAvailable) {
+      const presenter = type === 'REWARDED' ? showNativeRewardedAd : showNativeInterstitialAd;
+      presenter()
+        .then((result) => onComplete(result))
+        .catch(() => onComplete(false));
+      return;
+    }
+
     setActiveOverlayAd(type);
     setAdCallback(() => onComplete);
   };
@@ -576,12 +601,12 @@ function App() {
       </div>
 
       {/* Ad Overlay System */}
-      {activeOverlayAd && (
+      {!nativeAdsAvailable && activeOverlayAd && (
           <AdMock type={activeOverlayAd} onClose={handleAdClose} />
       )}
 
       {/* Banner Ad - Always present at bottom */}
-      <AdMock type="BANNER" onClose={() => {}} />
+      {!nativeAdsAvailable && <AdMock type="BANNER" onClose={() => {}} />}
 
       {/* Notification Overlay */}
       {notification && (

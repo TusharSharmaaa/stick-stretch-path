@@ -8,7 +8,7 @@ A fun and addictive stick-stretching game built with React and TypeScript.
 - Mobile-friendly design
 - Score tracking and coin system
 - Multiple character skins
-- Ad integration (mock ads for development)
+- Google AdMob integration (Capacitor native bridge with test IDs)
 
 ## Run Locally
 
@@ -33,6 +33,20 @@ A fun and addictive stick-stretching game built with React and TypeScript.
 ```bash
 npm run build
 ```
+
+## Android (Google Play) Build
+
+1. Generate the latest web assets:
+   ```bash
+   npm run build
+   ```
+2. Sync the Capacitor Android project so it pulls the fresh build and plugin updates:
+   ```bash
+   npx cap sync android
+   ```
+3. Open `android/` in Android Studio, let Gradle finish syncing, and run on a device/emulator that has Play Services.
+4. Test ads are already configured with Google’s sample AdMob IDs for compliance. Replace the IDs in `utils/ads.ts` before going to production.
+5. For release builds, create a signing config in Android Studio, generate an `AAB`, and upload it to the Play Console.
 
 ## Technologies Used
 
