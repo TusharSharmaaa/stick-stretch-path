@@ -871,7 +871,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const lastTapRef = useRef<number>(0);
   
   const handlePointerDown = (e: React.SyntheticEvent) => {
-    e.preventDefault();
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     
     // Double tap to pause (when not in IDLE or GROWING state)
     if (stateRef.current !== PlayerState.IDLE && stateRef.current !== PlayerState.GROWING && !isPausedRef.current) {
@@ -892,7 +894,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
 
   const handlePointerUp = (e: React.SyntheticEvent) => {
-    e.preventDefault();
+    if (e.cancelable) {
+      e.preventDefault();
+    }
     if (stateRef.current === PlayerState.GROWING && !isPausedRef.current) {
       stateRef.current = PlayerState.ROTATING;
       if (settings.soundEnabled) stopGrowSound();
