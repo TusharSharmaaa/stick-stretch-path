@@ -1,6 +1,6 @@
 
-import React, { useState, useEffect } from 'react';
-import { GameState, Skin, Achievement, GameStats, DailyChallenge } from './types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { GameState, Skin, Achievement, GameStats, DailyChallenge, ShopBoost, BoostInventory } from './types';
 import StickStretchGame from './components/StickStretchGame';
 import MainMenu from './components/MainMenu';
 import GameOver from './components/GameOver';
@@ -21,9 +21,13 @@ import {
   saveStats,
   hasSeenTutorial,
   markTutorialSeen,
-  saveDailyChallenges
+  saveDailyChallenges,
+  getBoostInventory,
+  saveBoostInventory,
+  getShopDealsUnlocked,
+  saveShopDealsUnlocked
 } from './utils/storage';
-import { SKINS, AD_COIN_REWARD } from './constants';
+import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS } from './constants';
 import { initAudio, startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from './utils/audio';
 import { initializeAchievements, checkAchievements } from './utils/achievements';
 import { generateDailyChallenges } from './utils/dailyChallenges';
@@ -53,16 +57,50 @@ function App() {
   const [showTutorial, setShowTutorial] = useState(!hasSeenTutorial());
   const [notification, setNotification] = useState<{ text: string; type: 'achievement' | 'challenge' | 'powerup' } | null>(null);
   const [currentGameStats, setCurrentGameStats] = useState({ perfects: 0, combo: 0, coinsCollected: 0 });
+  const [boostInventory, setBoostInventory] = useState<BoostInventory>({});
+  const [equippedBoosts, setEquippedBoosts] = useState<string[]>([]);
+  const [activeBoosts, setActiveBoosts] = useState<string[]>([]);
+  const [shopDealsUnlocked, setShopDealsUnlocked] = useState(false);
+  const reviveBoostUsedRef = useRef(false);
+  const boostDefinitions = useMemo<Record<string, ShopBoost>>(() => {
+    const map: Record<string, ShopBoost> = {};
+    SHOP_BOOSTS.forEach(boost => {
+      map[boost.id] = boost;
+    });
+    return map;
+  }, []);
 
   useEffect(() => {
     setBestScore(getHighScore());
     setCoins(getCoins());
-    setUnlockedSkins(getUnlockedSkins());
+    const initialSkins = getUnlockedSkins();
+    setUnlockedSkins(initialSkins);
     setCurrentSkinId(getSelectedSkin());
     setSettings(getSettings());
     setStats(getStats());
-    setAchievements(initializeAchievements());
+    const loadedAchievements = initializeAchievements();
+    setAchievements(loadedAchievements);
     setDailyChallenges(generateDailyChallenges());
+    setBoostInventory(getBoostInventory());
+    setShopDealsUnlocked(getShopDealsUnlocked());
+    
+    // Unlock achievement skins if achievements are already unlocked
+    const updatedSkins = [...initialSkins];
+    let skinsChanged = false;
+    const perfect10Achievement = loadedAchievements.find(a => a.id === 'perfect_10');
+    if (perfect10Achievement?.unlocked && !initialSkins.includes('achievement_perfect10')) {
+      updatedSkins.push('achievement_perfect10');
+      skinsChanged = true;
+    }
+    const games100Achievement = loadedAchievements.find(a => a.id === 'games_100');
+    if (games100Achievement?.unlocked && !initialSkins.includes('achievement_100games')) {
+      updatedSkins.push('achievement_100games');
+      skinsChanged = true;
+    }
+    if (skinsChanged) {
+      setUnlockedSkins(updatedSkins);
+      saveUnlockedSkins(updatedSkins);
+    }
     
     // Initialize audio with settings
     initAudio();
@@ -128,6 +166,52 @@ function App() {
     setAdCallback(() => onComplete);
   };
 
+  const handlePurchaseBoost = (boostId: string, overrideCost?: number) => {
+    const boost = boostDefinitions[boostId];
+    if (!boost) return;
+    
+    const purchaseCost = overrideCost ?? boost.cost;
+    // Validate purchase: must have valid cost and sufficient coins
+    if (purchaseCost <= 0) return;
+    if (coins < purchaseCost) return;
+
+    const newCoins = coins - purchaseCost;
+    setCoins(newCoins);
+    saveCoins(newCoins);
+
+    const updatedInventory: BoostInventory = {
+      ...boostInventory,
+      [boostId]: (boostInventory[boostId] || 0) + 1,
+    };
+    setBoostInventory(updatedInventory);
+    saveBoostInventory(updatedInventory);
+  };
+
+  const handleToggleBoostEquip = (boostId: string) => {
+    const isEquipped = equippedBoosts.includes(boostId);
+    if (isEquipped) {
+      setEquippedBoosts(prev => prev.filter(id => id !== boostId));
+      return;
+    }
+
+    if (!boostInventory[boostId]) return;
+    setEquippedBoosts(prev => [...prev, boostId]);
+  };
+
+  const handleUnlockShopDeals = () => {
+    showAd('REWARDED', (success) => {
+      if (success) {
+        if (!shopDealsUnlocked) {
+          setShopDealsUnlocked(true);
+          saveShopDealsUnlocked(true);
+        }
+        const newCoins = coins + AD_COIN_REWARD;
+        setCoins(newCoins);
+        saveCoins(newCoins);
+      }
+    });
+  };
+
   const handleAdClose = (rewardEarned: boolean) => {
     setActiveOverlayAd(null);
     if (adCallback) {
@@ -138,6 +222,21 @@ function App() {
 
   const handleStartGame = () => {
     initAudio();
+    const boostsToConsume = equippedBoosts.filter(boostId => boostInventory[boostId]);
+    if (boostsToConsume.length > 0) {
+      const updatedInventory: BoostInventory = { ...boostInventory };
+      boostsToConsume.forEach(id => {
+        updatedInventory[id] = (updatedInventory[id] || 0) - 1;
+        if ((updatedInventory[id] ?? 0) <= 0) {
+          delete updatedInventory[id];
+        }
+      });
+      setBoostInventory(updatedInventory);
+      saveBoostInventory(updatedInventory);
+    }
+    setActiveBoosts(boostsToConsume);
+    setEquippedBoosts([]);
+    reviveBoostUsedRef.current = false;
     setScore(0);
     setIsReviving(false);
     setCurrentGameStats({ perfects: 0, combo: 0, coinsCollected: 0 });
@@ -147,11 +246,29 @@ function App() {
   };
 
   const handleGameOver = (finalScore: number) => {
+    const hasSafetyNet = activeBoosts.includes('safety_net') && !reviveBoostUsedRef.current;
+    if (hasSafetyNet) {
+      reviveBoostUsedRef.current = true;
+      setActiveBoosts(prev => prev.filter(id => id !== 'safety_net'));
+      setGameState(GameState.PLAYING);
+      setIsReviving(true);
+      return;
+    }
+
     if (finalScore > bestScore) {
       setBestScore(finalScore);
       setHighScore(finalScore);
     }
-    const earnedCoins = finalScore + currentGameStats.coinsCollected;
+    let earnedCoins = finalScore + currentGameStats.coinsCollected;
+    activeBoosts.forEach(boostId => {
+      const boost = boostDefinitions[boostId];
+      if (!boost) return;
+      if (boost.effect === 'coinMultiplier') {
+        earnedCoins = Math.round(earnedCoins * boost.modifier);
+      } else if (boost.effect === 'flatBonus') {
+        earnedCoins += boost.modifier;
+      }
+    });
     const newTotalCoins = coins + earnedCoins;
     setCoins(newTotalCoins);
     saveCoins(newTotalCoins);
@@ -273,6 +390,7 @@ function App() {
     } else {
        setGameState(GameState.GAME_OVER);
     }
+    setActiveBoosts([]);
   };
 
   const handleRevive = () => {
@@ -286,19 +404,22 @@ function App() {
   };
 
   const handleUnlockSkin = (skinId: string, cost: number) => {
-    if (coins >= cost && !unlockedSkins.includes(skinId)) {
-      const newCoins = coins - cost;
-      const newSkins = [...unlockedSkins, skinId];
-      
-      setCoins(newCoins);
-      saveCoins(newCoins);
-      
-      setUnlockedSkins(newSkins);
-      saveUnlockedSkins(newSkins);
-      
-      setCurrentSkinId(skinId);
-      saveSelectedSkin(skinId);
-    }
+    // Prevent double unlock, ensure sufficient coins, and validate cost
+    if (cost < 0) return;
+    if (cost > 0 && coins < cost) return;
+    if (unlockedSkins.includes(skinId)) return;
+    
+    const newCoins = coins - cost;
+    const newSkins = [...unlockedSkins, skinId];
+    
+    setCoins(newCoins);
+    saveCoins(newCoins);
+    
+    setUnlockedSkins(newSkins);
+    saveUnlockedSkins(newSkins);
+    
+    setCurrentSkinId(skinId);
+    saveSelectedSkin(skinId);
   };
 
   const handleSelectSkin = (skinId: string) => {
@@ -392,6 +513,12 @@ function App() {
             unlockedSkins={unlockedSkins}
             onUnlockSkin={handleUnlockSkin}
             onWatchAd={handleWatchAdForCoins}
+            boostInventory={boostInventory}
+            equippedBoosts={equippedBoosts}
+            onPurchaseBoost={handlePurchaseBoost}
+            onToggleBoostEquip={handleToggleBoostEquip}
+            shopDealsUnlocked={shopDealsUnlocked}
+            onUnlockShopDeals={handleUnlockShopDeals}
             stats={stats}
             achievements={achievements}
             dailyChallenges={dailyChallenges}

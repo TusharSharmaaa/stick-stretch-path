@@ -1,8 +1,8 @@
 
 import React from 'react';
-import { Play, ShoppingBag, Coins, Video, ChevronRight, Lock, BarChart3, Trophy, Calendar, Settings, X } from 'lucide-react';
-import { SKINS, AD_COIN_REWARD } from '../constants';
-import { Achievement, GameStats, DailyChallenge } from '../types';
+import { Play, ShoppingBag, Coins, Video, Lock, BarChart3, Trophy, Calendar, Settings, X, Sparkles, Shield } from 'lucide-react';
+import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS } from '../constants';
+import { Achievement, GameStats, DailyChallenge, BoostInventory } from '../types';
 
 interface MainMenuProps {
   onPlay: () => void;
@@ -20,6 +20,12 @@ interface MainMenuProps {
   onUpdateSettings?: (settings: { soundEnabled: boolean; musicEnabled: boolean; hapticsEnabled: boolean }) => void;
   showTutorial?: boolean;
   onTutorialClose?: () => void;
+  boostInventory: BoostInventory;
+  equippedBoosts: string[];
+  onPurchaseBoost: (boostId: string, cost?: number) => void;
+  onToggleBoostEquip: (boostId: string) => void;
+  shopDealsUnlocked: boolean;
+  onUnlockShopDeals: () => void;
 }
 
 const MainMenu: React.FC<MainMenuProps> = ({
@@ -37,9 +43,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
   settings = { soundEnabled: true, musicEnabled: true, hapticsEnabled: true },
   onUpdateSettings,
   showTutorial = false,
-  onTutorialClose
+  onTutorialClose,
+  boostInventory,
+  equippedBoosts,
+  onPurchaseBoost,
+  onToggleBoostEquip,
+  shopDealsUnlocked,
+  onUnlockShopDeals
 }) => {
   const [activeTab, setActiveTab] = React.useState<'main' | 'shop' | 'stats' | 'achievements' | 'challenges' | 'settings'>('main');
+  const [shopCategory, setShopCategory] = React.useState<'skins' | 'boosts'>('skins');
 
   const formatNumber = (value: number) => value.toLocaleString();
   const formatDistance = (distance: number) => {
@@ -51,6 +64,29 @@ const MainMenu: React.FC<MainMenuProps> = ({
     }
     return `${Math.round(distance)} m`;
   };
+  const getEffectiveCost = (baseCost: number) => {
+    if (!shopDealsUnlocked || baseCost === 0) return baseCost;
+    return Math.max(1, Math.round(baseCost * 0.85));
+  };
+
+  const renderBoostIcon = (icon: 'Coins' | 'Shield' | 'Sparkles') => {
+    if (icon === 'Shield') {
+      return <Shield className="w-10 h-10 text-cyan-300" />;
+    }
+    if (icon === 'Sparkles') {
+      return <Sparkles className="w-10 h-10 text-pink-300" />;
+    }
+    return <Coins className="w-10 h-10 text-yellow-300" />;
+  };
+
+  const rarityColors: Record<string, string> = {
+    rare: 'text-cyan-300',
+    legendary: 'text-yellow-300',
+    mythic: 'text-pink-400'
+  };
+  const equippedBoostDetails = equippedBoosts
+    .map(id => SHOP_BOOSTS.find(b => b.id === id))
+    .filter((boost): boost is (typeof SHOP_BOOSTS)[number] => Boolean(boost));
 
   const unlockedAchievementsCount = stats?.achievementsUnlocked ?? achievements.filter(a => a.unlocked).length;
   const totalAchievements = achievements.length;
@@ -233,80 +269,249 @@ const MainMenu: React.FC<MainMenuProps> = ({
                 </h2>
                 <div className="bg-black/50 px-4 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-yellow-400" />
-                    <span className="font-mono text-white font-bold">{coins}</span>
+                    <span className="font-mono text-white font-bold">{coins.toLocaleString()}</span>
                 </div>
                 </div>
                 
                 {/* Ad Incentivization Area */}
                 <button 
                     onClick={onWatchAd}
-                    className="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-xl border border-yellow-300/50 flex items-center justify-center gap-3 transform transition-transform active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] animate-pulse hover:animate-none group mb-2"
+                    className="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-xl border border-yellow-300/50 flex items-center justify-center gap-3 transform transition-transform active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] animate-pulse hover:animate-none group mb-3"
                 >
                     <Video className="w-6 h-6 text-black fill-current" />
                     <span className="font-black text-black italic text-lg tracking-wider">WATCH AD</span>
                     <span className="bg-black/20 px-2 py-0.5 rounded text-black font-bold text-sm">+{AD_COIN_REWARD} <Coins className="w-3 h-3 inline -mt-0.5" /></span>
                 </button>
-            </div>
 
-            {/* Skin List (Scrollable) */}
-            <div className="flex-1 overflow-y-auto px-6 custom-scrollbar space-y-3 pb-4">
-              {SKINS.map((skin) => {
-                const isUnlocked = unlockedSkins.includes(skin.id);
-                const isSelected = currentSkin === skin.id;
-
-                return (
-                  <div 
-                    key={skin.id}
+                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${shopDealsUnlocked ? 'border-cyan-400/50 bg-cyan-500/10' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
+                  <div>
+                    <p className="text-xs font-black tracking-[0.3em] text-slate-400 uppercase">VIP DEALS</p>
+                    <p className="text-white font-bold">-15% on skins & boosts {shopDealsUnlocked ? 'active' : 'after ad unlock'}</p>
+                    <p className="text-[11px] text-slate-400">Watch a rewarded ad to unlock premium pricing.</p>
+                  </div>
+                  <button
                     onClick={() => {
-                        if (isUnlocked) onSelectSkin(skin.id);
-                        else if (coins >= skin.cost) onUnlockSkin(skin.id, skin.cost);
+                      if (!shopDealsUnlocked) onUnlockShopDeals();
                     }}
-                    className={`relative p-3 rounded-xl border transition-all cursor-pointer group overflow-hidden shrink-0 ${
-                      isSelected 
-                        ? 'border-pink-500 bg-pink-500/10 shadow-[0_0_20px_rgba(236,72,153,0.2)]' 
-                        : 'border-slate-700 bg-slate-800/50 hover:border-cyan-500/50 hover:bg-slate-800'
+                    disabled={shopDealsUnlocked}
+                    className={`px-4 py-2 rounded-xl font-black uppercase tracking-wide text-xs border ${
+                      shopDealsUnlocked
+                        ? 'bg-slate-800/70 text-slate-400 border-slate-700 cursor-not-allowed'
+                        : 'bg-yellow-400/90 text-black border-yellow-200 hover:bg-yellow-300'
                     }`}
                   >
-                    {isSelected && <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-transparent" />}
-                    
-                    <div className="flex items-center justify-between relative z-10">
-                        <div className="flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-lg shadow-lg ${skin.color} transform group-hover:rotate-6 transition-transform`} />
-                            <div className="flex flex-col">
-                                <span className={`font-bold text-lg ${isSelected ? 'text-pink-400' : 'text-white'}`}>{skin.name}</span>
-                                <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold">
-                                    {isUnlocked ? 'OWNED' : `${skin.cost} COINS`}
-                                </span>
-                            </div>
+                    {shopDealsUnlocked ? 'ACTIVE' : 'UNLOCK VIA AD'}
+                  </button>
+                </div>
+
+                <div className="mt-4 flex gap-3">
+                  <button
+                    onClick={() => setShopCategory('skins')}
+                    className={`flex-1 py-2 rounded-xl font-bold text-sm border ${
+                      shopCategory === 'skins'
+                        ? 'bg-pink-500 text-white border-pink-400'
+                        : 'bg-slate-900/60 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    Themes
+                  </button>
+                  <button
+                    onClick={() => setShopCategory('boosts')}
+                    className={`flex-1 py-2 rounded-xl font-bold text-sm border ${
+                      shopCategory === 'boosts'
+                        ? 'bg-cyan-500 text-black border-cyan-300'
+                        : 'bg-slate-900/60 text-slate-400 border-slate-700'
+                    }`}
+                  >
+                    Boosters
+                  </button>
+                </div>
+            </div>
+
+            {/* Shop Content (Scrollable) */}
+            <div className="flex-1 overflow-y-auto px-6 custom-scrollbar space-y-3 pb-4">
+              {shopCategory === 'skins' ? (
+                SKINS.map((skin) => {
+                  const isUnlocked = unlockedSkins.includes(skin.id);
+                  const isSelected = currentSkin === skin.id;
+                  const effectiveCost = getEffectiveCost(skin.cost);
+                  const hasDiscount = shopDealsUnlocked && skin.cost > 0 && effectiveCost < skin.cost;
+                  const missingCoins = Math.max(0, effectiveCost - coins);
+                  const isAchievementSkin = skin.id.startsWith('achievement_');
+                  let unlockRequirementText = '';
+                  if (!isUnlocked && isAchievementSkin) {
+                    if (skin.id === 'achievement_perfect10') {
+                      unlockRequirementText = 'UNLOCK VIA: Perfect 10 Achievement';
+                    } else if (skin.id === 'achievement_100games') {
+                      unlockRequirementText = 'UNLOCK VIA: 100 Games Achievement';
+                    } else {
+                      unlockRequirementText = 'UNLOCK VIA ACHIEVEMENT';
+                    }
+                  }
+
+                  return (
+                  <div 
+                    key={skin.id}
+                    className={`relative p-3 rounded-xl border transition-all group overflow-hidden shrink-0 ${
+                        isSelected 
+                          ? 'border-pink-500 bg-pink-500/10 shadow-[0_0_20px_rgba(236,72,153,0.2)]' 
+                          : 'border-slate-700 bg-slate-800/50 hover:border-cyan-500/50 hover:bg-slate-800'
+                      }`}
+                    >
+                      {skin.badge && (
+                        <div className="absolute top-1.5 right-3 bg-yellow-400 text-black text-[10px] font-black px-2 py-[3px] rounded-full leading-none shadow-[0_2px_6px_rgba(0,0,0,0.3)]">
+                          {skin.badge}
                         </div>
+                      )}
+                      {isSelected && <div className="absolute inset-0 bg-gradient-to-r from-pink-500/10 to-transparent" />}
+                      
+                      <div className="flex items-center justify-between relative z-10">
+                          <div className="flex items-center gap-4">
+                              <div className={`w-12 h-12 rounded-lg shadow-lg ${skin.color} transform group-hover:rotate-6 transition-transform`} />
+                              <div className="flex flex-col">
+                                  <span className={`font-bold text-lg flex items-center gap-2 ${isSelected ? 'text-pink-400' : 'text-white'}`}>
+                                    {skin.name}
+                                    {skin.rarity && (
+                                      <span className={`text-[10px] uppercase ${rarityColors[skin.rarity] || 'text-slate-400'}`}>
+                                        {skin.rarity}
+                                      </span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 uppercase tracking-wider font-bold flex items-center gap-1">
+                                    {isUnlocked ? 'OWNED' : isAchievementSkin ? unlockRequirementText : `${effectiveCost.toLocaleString()} COINS`}
+                                    {hasDiscount && !isAchievementSkin && <span className="text-cyan-300">VIP</span>}
+                                  </span>
+                              </div>
+                          </div>
 
                         {isUnlocked ? (
-                            isSelected ? (
-                                <div className="bg-pink-500 text-white text-xs font-bold px-3 py-1 rounded skew-x-[-10deg]">EQUIPPED</div>
-                            ) : (
-                                <div className="text-slate-500 group-hover:text-white transition-colors">
-                                    <ChevronRight className="w-6 h-6" />
-                                </div>
-                            )
-                        ) : (
+                          isSelected ? (
+                            <div className="bg-pink-500 text-white text-xs font-black px-3 py-1 rounded skew-x-[-10deg]">EQUIPPED</div>
+                          ) : (
                             <button
-                                className={`text-xs font-bold px-3 py-1.5 rounded skew-x-[-10deg] transition-all flex items-center gap-1 ${
-                                    coins >= skin.cost 
-                                    ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' 
-                                    : 'bg-slate-700 text-slate-500'
-                                }`}
+                              type="button"
+                              onClick={() => onSelectSkin(skin.id)}
+                              className="text-xs font-bold px-3 py-1.5 rounded skew-x-[-10deg] bg-cyan-500 text-black hover:bg-cyan-400 transition-all"
                             >
-                                {coins >= skin.cost ? (
-                                    <>UNLOCK <Lock className="w-3 h-3" /></>
-                                ) : (
-                                    <>NEED {skin.cost - coins} <Coins className="w-3 h-3" /></>
-                                )}
+                              EQUIP
                             </button>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!isAchievementSkin && coins >= effectiveCost && effectiveCost >= 0) {
+                                onUnlockSkin(skin.id, effectiveCost);
+                              }
+                            }}
+                            disabled={isAchievementSkin || (effectiveCost > 0 && coins < effectiveCost)}
+                            className={`text-xs font-bold px-3 py-1.5 rounded skew-x-[-10deg] transition-all flex items-center gap-1 ${
+                              !isAchievementSkin && coins >= effectiveCost && effectiveCost >= 0
+                                ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]' 
+                                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
+                            }`}
+                          >
+                            {isAchievementSkin ? (
+                              <>LOCKED <Lock className="w-3 h-3" /></>
+                            ) : coins >= effectiveCost && effectiveCost >= 0 ? (
+                              effectiveCost === 0 ? (
+                                <>FREE</>
+                              ) : (
+                                <>UNLOCK <Lock className="w-3 h-3" /></>
+                              )
+                            ) : (
+                              <>NEED {missingCoins.toLocaleString()} <Coins className="w-3 h-3" /></>
+                            )}
+                          </button>
                         )}
+                      </div>
                     </div>
+                  );
+                })
+              ) : (
+                <>
+                  <div className="bg-slate-900/60 border border-cyan-500/30 rounded-2xl p-4">
+                    <div className="text-xs uppercase tracking-[0.3em] text-slate-400 font-black mb-2">Active next run</div>
+                    {equippedBoostDetails.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {equippedBoostDetails.map(boost => (
+                          <span key={boost.id} className="px-3 py-1 rounded-full text-xs font-bold bg-cyan-500/20 text-cyan-200 border border-cyan-400/40">
+                            {boost.name}
+                          </span>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-400 text-sm">No boosters queued. Purchase and equip one to supercharge the next run.</p>
+                    )}
                   </div>
-                );
-              })}
+
+                  {SHOP_BOOSTS.map(boost => {
+                    const owned = boostInventory[boost.id] || 0;
+                    const isEquipped = equippedBoosts.includes(boost.id);
+                    const effectiveCost = getEffectiveCost(boost.cost);
+                    const hasDiscount = shopDealsUnlocked && boost.cost > 0 && effectiveCost < boost.cost;
+                    const canBuy = coins >= effectiveCost;
+
+                    return (
+                      <div
+                        key={boost.id}
+                        className="p-4 rounded-2xl border border-slate-700 bg-slate-900/60 flex flex-col gap-3"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className="w-16 h-16 bg-black/30 rounded-2xl flex items-center justify-center border border-white/5">
+                              {renderBoostIcon(boost.icon)}
+                            </div>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h4 className="text-white font-black text-lg">{boost.name}</h4>
+                                {hasDiscount && <span className="text-[10px] font-black text-cyan-300">VIP</span>}
+                              </div>
+                              <p className="text-slate-400 text-sm">{boost.description}</p>
+                              <p className="text-[11px] text-slate-500 uppercase tracking-[0.3em]">{boost.durationLabel}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-slate-400 text-xs uppercase">owned</p>
+                            <p className="text-2xl font-black text-white">{owned}</p>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <button
+                            onClick={() => onToggleBoostEquip(boost.id)}
+                            disabled={!owned && !isEquipped}
+                            className={`flex-1 py-2 rounded-xl font-bold text-sm border ${
+                              isEquipped
+                                ? 'bg-pink-500 text-white border-pink-400 hover:bg-pink-400'
+                                : owned
+                                  ? 'bg-slate-800 text-white border-slate-600 hover:border-pink-400'
+                                  : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
+                            }`}
+                          >
+                            {isEquipped ? 'Equipped (click to unequip)' : owned ? 'Equip for next run' : 'No charges'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (canBuy && effectiveCost > 0 && coins >= effectiveCost) {
+                                onPurchaseBoost(boost.id, effectiveCost);
+                              }
+                            }}
+                            disabled={!canBuy || effectiveCost <= 0 || coins < effectiveCost}
+                            className={`flex-1 py-2 rounded-xl font-bold text-sm border flex items-center justify-center gap-2 ${
+                              canBuy && effectiveCost > 0 && coins >= effectiveCost
+                                ? 'bg-cyan-500 text-black border-cyan-300 hover:bg-cyan-400'
+                                : 'bg-slate-900 text-slate-500 border-slate-800 cursor-not-allowed'
+                            }`}
+                          >
+                            <Coins className="w-4 h-4" />
+                            {effectiveCost > 0 ? `Spend ${effectiveCost.toLocaleString()}` : 'FREE'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
             </div>
 
             {/* Footer (Fixed at bottom of modal) */}

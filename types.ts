@@ -71,7 +71,24 @@ export interface Skin {
   name: string;
   color: string;
   cost: number;
+  rarity?: 'common' | 'rare' | 'legendary' | 'mythic';
+  badge?: string;
 }
+
+export type BoostEffect = 'coinMultiplier' | 'flatBonus' | 'freeRevive';
+
+export interface ShopBoost {
+  id: string;
+  name: string;
+  description: string;
+  cost: number;
+  durationLabel: string;
+  effect: BoostEffect;
+  modifier: number;
+  icon: 'Coins' | 'Shield' | 'Sparkles';
+}
+
+export type BoostInventory = Record<string, number>;
 
 export interface GameConfig {
   growthRate: number; // pixels per second

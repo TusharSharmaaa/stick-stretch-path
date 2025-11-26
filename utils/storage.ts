@@ -195,3 +195,40 @@ export const saveDailyChallenges = (challenges: any[]) => {
     console.error('Error saving daily challenges:', e);
   }
 };
+
+// Boost inventory
+export const getBoostInventory = (): Record<string, number> => {
+  try {
+    const stored = localStorage.getItem('stick-stretch-boosts');
+    return stored ? JSON.parse(stored) : {};
+  } catch (e) {
+    console.error('Error reading boost inventory:', e);
+    return {};
+  }
+};
+
+export const saveBoostInventory = (inventory: Record<string, number>) => {
+  try {
+    localStorage.setItem('stick-stretch-boosts', JSON.stringify(inventory));
+  } catch (e) {
+    console.error('Error saving boost inventory:', e);
+  }
+};
+
+// Shop deal unlocks (ad-gated VIP deals)
+export const getShopDealsUnlocked = (): boolean => {
+  try {
+    return localStorage.getItem('stick-stretch-shop-deals') === 'unlocked';
+  } catch (e) {
+    console.error('Error reading shop deal unlock:', e);
+    return false;
+  }
+};
+
+export const saveShopDealsUnlocked = (value: boolean) => {
+  try {
+    localStorage.setItem('stick-stretch-shop-deals', value ? 'unlocked' : 'locked');
+  } catch (e) {
+    console.error('Error saving shop deal unlock:', e);
+  }
+};

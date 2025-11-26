@@ -1,5 +1,5 @@
 
-import { Skin } from './types';
+import { ShopBoost, Skin } from './types';
 
 // Gameplay Balance
 export const INITIAL_GROWTH_RATE = 400; // px/sec
@@ -33,7 +33,7 @@ export const GAME_HEIGHT_OFFSET = 300; // Where the ground line is from bottom
 export const MAX_STICK_LENGTH = 800; // Maximum stick length before auto-rotation
 
 // Monetization
-export const AD_COIN_REWARD = 50;
+export const AD_COIN_REWARD = 40;
 export const INITIAL_COINS = 0;
 
 // Shop / Skins
@@ -45,6 +45,10 @@ export const SKINS: Skin[] = [
   { id: 'green', name: 'Emerald', color: 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.8)]', cost: 300 },
   { id: 'orange', name: 'Fire Orange', color: 'bg-orange-500 shadow-[0_0_10px_rgba(249,115,22,0.8)]', cost: 400 },
   { id: 'rainbow', name: 'Rainbow', color: 'bg-gradient-to-r from-pink-500 via-purple-500 to-cyan-500', cost: 1000 },
+  { id: 'midnight', name: 'Midnight Pulse', color: 'bg-gradient-to-r from-slate-900 via-purple-900 to-black shadow-[0_0_20px_rgba(139,92,246,0.6)]', cost: 650, rarity: 'rare' },
+  { id: 'aurora', name: 'Aurora Drift', color: 'bg-gradient-to-r from-cyan-400 via-indigo-500 to-pink-500 shadow-[0_0_30px_rgba(59,130,246,0.9)]', cost: 900, rarity: 'legendary' },
+  { id: 'sakura', name: 'Sakura Bloom', color: 'bg-gradient-to-r from-rose-400 to-pink-600 shadow-[0_0_20px_rgba(244,114,182,0.7)]', cost: 1200, rarity: 'legendary' },
+  { id: 'chrono', name: 'Chrono Rift', color: 'bg-gradient-to-r from-amber-500 via-slate-900 to-cyan-500 shadow-[0_0_35px_rgba(14,165,233,0.8)]', cost: 1500, rarity: 'mythic', badge: 'HOT' },
   { id: 'achievement_perfect10', name: 'Perfect Master', color: 'bg-yellow-300 shadow-[0_0_20px_rgba(253,224,71,1)]', cost: 0 }, // Unlock via achievement
   { id: 'achievement_100games', name: 'Veteran', color: 'bg-slate-400 shadow-[0_0_15px_rgba(148,163,184,0.8)]', cost: 0 },
 ];
@@ -80,3 +84,37 @@ export const ACHIEVEMENTS = [
 // Particle limits for performance (reduced for mobile optimization)
 export const MAX_PARTICLES = 50; // Reduced from 100 for better mobile performance
 export const MAX_FLOATING_TEXTS = 10; // Reduced from 20 for better mobile performance
+
+// Boost shop
+export const SHOP_BOOSTS: ShopBoost[] = [
+  {
+    id: 'double_coins',
+    name: 'Coin Frenzy',
+    description: 'Earn 2x coins on your next full run.',
+    cost: 250,
+    durationLabel: 'Single Run',
+    effect: 'coinMultiplier',
+    modifier: 2,
+    icon: 'Coins'
+  },
+  {
+    id: 'perfect_bank',
+    name: 'Perfect Vault',
+    description: 'Adds +150 bonus coins when the run ends.',
+    cost: 300,
+    durationLabel: 'Single Run',
+    effect: 'flatBonus',
+    modifier: 150,
+    icon: 'Sparkles'
+  },
+  {
+    id: 'safety_net',
+    name: 'Safety Drone',
+    description: 'Auto-revive once without watching an ad.',
+    cost: 400,
+    durationLabel: 'Single Run',
+    effect: 'freeRevive',
+    modifier: 1,
+    icon: 'Shield'
+  }
+];
