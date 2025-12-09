@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { GameState, Skin, Achievement, GameStats, DailyChallenge, ShopBoost, BoostInventory } from './types';
 import StickStretchGame from './components/StickStretchGame';
 import MainMenu from './components/MainMenu';
@@ -39,6 +39,8 @@ import {
   showNativeRewardedAd 
 } from './utils/nativeAds';
 
+const NOTIFICATION_DURATION = 1800;
+
 function App() {
   const [gameState, setGameState] = useState<GameState>(GameState.MENU);
   const [score, setScore] = useState(0);
@@ -69,12 +71,32 @@ function App() {
   const [activeBoosts, setActiveBoosts] = useState<string[]>([]);
   const [shopDealsUnlocked, setShopDealsUnlocked] = useState(false);
   const reviveBoostUsedRef = useRef(false);
+  const notificationTimers = useRef<number[]>([]);
   const boostDefinitions = useMemo<Record<string, ShopBoost>>(() => {
     const map: Record<string, ShopBoost> = {};
     SHOP_BOOSTS.forEach(boost => {
       map[boost.id] = boost;
     });
     return map;
+  }, []);
+
+  const scheduleNotification = useCallback(
+    (text: string, type: 'achievement' | 'challenge' | 'powerup', delay: number = 0) => {
+      const showTimer = window.setTimeout(() => {
+        setNotification({ text, type });
+        const hideTimer = window.setTimeout(() => setNotification(null), NOTIFICATION_DURATION);
+        notificationTimers.current.push(hideTimer);
+      }, delay);
+      notificationTimers.current.push(showTimer);
+    },
+    []
+  );
+
+  useEffect(() => {
+    return () => {
+      notificationTimers.current.forEach(timer => window.clearTimeout(timer));
+      notificationTimers.current = [];
+    };
   }, []);
 
   useEffect(() => {
@@ -126,10 +148,7 @@ function App() {
         if (newlyUnlocked.length > 0) {
           // Show notifications after a short delay
           newlyUnlocked.forEach((ach, i) => {
-            setTimeout(() => {
-              setNotification({ text: `Achievement Unlocked: ${ach.name}`, type: 'achievement' });
-              setTimeout(() => setNotification(null), 3000);
-            }, 500 + (i * 500));
+            scheduleNotification(`Achievement Unlocked: ${ach.name}`, 'achievement', 350 + (i * 350));
           });
           // Clear pending
           localStorage.removeItem('stick-stretch-pending-achievements');
@@ -143,10 +162,7 @@ function App() {
       const pendingChallenges = JSON.parse(pendingCh);
       if (pendingChallenges.length > 0) {
         pendingChallenges.forEach((ch: { id: string; reward: number }, i: number) => {
-          setTimeout(() => {
-            setNotification({ text: `Daily Challenge Complete! +${ch.reward} coins`, type: 'challenge' });
-            setTimeout(() => setNotification(null), 3000);
-          }, 500 + (i * 500));
+          scheduleNotification(`Daily Challenge Complete! +${ch.reward} coins`, 'challenge', 350 + (i * 350));
         });
         localStorage.removeItem('stick-stretch-pending-challenges');
       }
@@ -570,10 +586,7 @@ function App() {
                   const newlyUnlocked = achievements.filter(a => pendingIds.includes(a.id) && a.unlocked);
                   if (newlyUnlocked.length > 0) {
                     newlyUnlocked.forEach((ach, i) => {
-                      setTimeout(() => {
-                        setNotification({ text: `Achievement Unlocked: ${ach.name}`, type: 'achievement' });
-                        setTimeout(() => setNotification(null), 3000);
-                      }, 500 + (i * 500));
+                      scheduleNotification(`Achievement Unlocked: ${ach.name}`, 'achievement', 350 + (i * 350));
                     });
                     localStorage.removeItem('stick-stretch-pending-achievements');
                   }
@@ -586,10 +599,7 @@ function App() {
                 const pendingChallenges = JSON.parse(pendingCh);
                 if (pendingChallenges.length > 0) {
                   pendingChallenges.forEach((ch: { id: string; reward: number }, i: number) => {
-                    setTimeout(() => {
-                      setNotification({ text: `Daily Challenge Complete! +${ch.reward} coins`, type: 'challenge' });
-                      setTimeout(() => setNotification(null), 3000);
-                    }, 1000 + (i * 500));
+                    scheduleNotification(`Daily Challenge Complete! +${ch.reward} coins`, 'challenge', 600 + (i * 350));
                   });
                   localStorage.removeItem('stick-stretch-pending-challenges');
                 }
@@ -610,12 +620,17 @@ function App() {
 
       {/* Notification Overlay */}
       {notification && (
-        <div className={`absolute top-20 left-1/2 -translate-x-1/2 z-[200] px-6 py-3 rounded-xl border-2 backdrop-blur-md animate-fade-in pointer-events-none ${
-          notification.type === 'achievement' ? 'bg-yellow-500/20 border-yellow-400 text-yellow-300' :
-          notification.type === 'challenge' ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300' :
-          'bg-pink-500/20 border-pink-400 text-pink-300'
-        }`}>
-          <span className="font-black text-lg">{notification.text}</span>
+        <div
+          className={`absolute right-[max(1rem,env(safe-area-inset-right))] top-[max(1rem,calc(env(safe-area-inset-top)+0.75rem))] z-[200] w-[min(90vw,320px)] px-5 py-3 rounded-2xl border-[1.5px] backdrop-blur-xl shadow-[0_8px_30px_rgba(0,0,0,0.35)] pointer-events-none transition-all ${
+            notification.type === 'achievement'
+              ? 'bg-yellow-500/15 border-yellow-300/60 text-yellow-200'
+              : notification.type === 'challenge'
+              ? 'bg-cyan-500/15 border-cyan-300/60 text-cyan-200'
+              : 'bg-pink-500/15 border-pink-300/60 text-pink-200'
+          }`}
+          style={{ transform: 'translateZ(0)' }}
+        >
+          <span className="font-black text-base leading-snug block">{notification.text}</span>
         </div>
       )}
     </div>
