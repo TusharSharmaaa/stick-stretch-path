@@ -158,3 +158,4 @@ POWER_UP_DURATIONS = { shield: 1 }  // Says "uses" but treated as seconds
 - [ ] Test on low-end mobile devices
 - [ ] Test audio doesn't leak memory
 - [ ] Test all power-ups work correctly
+
