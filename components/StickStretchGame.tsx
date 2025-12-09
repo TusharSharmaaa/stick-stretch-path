@@ -70,6 +70,7 @@ interface DecorObject {
   x: number;
   y: number;
   size: number; // width/height
+  height?: number; // optional fixed height for pillars
   speed: number;
   rotation: number;
   type: 'dust' | 'geo' | 'flux' | 'pillar';
@@ -241,6 +242,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         id: i + 500,
         x: Math.random() * 2500,
         y: 0,
+        height: Math.random() * 200 + 300,
         size: Math.random() * 60 + 40,
         speed: Math.random() * 0.15 + 0.05,
         rotation: 0,
@@ -1022,7 +1024,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                             style={{
                                 left: `${renderX}px`,
                                 width: `${d.size}px`,
-                                height: `${300 + Math.random() * 200}px`, // Fixed height variation
+                                height: `${d.height ?? 400}px`,
                                 bottom: 0,
                                 opacity: d.opacity,
                                 transform: `translate3d(0, 0, -500px)`, // Push back with GPU acceleration
