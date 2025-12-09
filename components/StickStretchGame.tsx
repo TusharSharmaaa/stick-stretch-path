@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { PlayerState, Platform, Stick, Player, Particle, FloatingText, PowerUpType, PlatformType } from '../types';
 import { useGameLoop } from '../hooks/useGameLoop';
 import { 
@@ -26,6 +26,33 @@ import {
   MAX_STICK_LENGTH
 } from '../constants';
 import { startGrowSound, stopGrowSound, playStickHit, playSuccess, playFail, playCoin } from '../utils/audio';
+
+// Mobile device detection
+const isMobileDevice = () => {
+  if (typeof window === 'undefined') return false;
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+         (window.innerWidth <= 768) ||
+         ('ontouchstart' in window);
+};
+
+// Performance settings based on device
+const getPerformanceSettings = () => {
+  const isMobile = isMobileDevice();
+  return {
+    isMobile,
+    maxParticles: isMobile ? Math.floor(MAX_PARTICLES * 0.4) : MAX_PARTICLES, // 60% reduction on mobile
+    maxFloatingTexts: isMobile ? Math.floor(MAX_FLOATING_TEXTS * 0.6) : MAX_FLOATING_TEXTS, // 40% reduction
+    particleSpawnMultiplier: isMobile ? 0.3 : 0.5, // 70% reduction on mobile
+    decorPillars: isMobile ? 3 : 8,
+    decorFlux: isMobile ? 3 : 8,
+    decorGeo: isMobile ? 1 : 3,
+    decorDust: isMobile ? 4 : 10,
+    playerTrailMax: isMobile ? 3 : 5,
+    playerTrailSpawnChance: isMobile ? 0.3 : 0.5,
+    enablePlayerTrail: !isMobile, // Disable trail on mobile for better performance
+    verticalLines: isMobile ? 4 : 8,
+  };
+};
 
 interface StickStretchGameProps {
   skinColor: string;
@@ -60,6 +87,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   onGameEvent,
   settings = { soundEnabled: true, musicEnabled: true, hapticsEnabled: true }
 }) => {
+  // Performance settings (memoized to avoid recalculation)
+  const perfSettings = useMemo(() => getPerformanceSettings(), []);
+  
   // Game Logic State
   const playerRef = useRef<Player>({ x: 0, y: 0 });
   const stickRef = useRef<Stick>({ x: 0, length: 0, rotation: 0 });
@@ -104,7 +134,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   
   // Throttle state updates for better performance (but keep responsive during critical states)
   const stateUpdateFrameSkipRef = useRef<number>(0);
-  const STATE_UPDATE_INTERVAL = 1; // Update every frame for smoothness (reduced from 2)
+  // More aggressive throttling on mobile, but still smooth
+  const STATE_UPDATE_INTERVAL = perfSettings.isMobile ? 1 : 1; // Keep at 1 for smoothness, but optimize elsewhere
 
   // React State for rendering
   const [viewState, setViewState] = useState({
@@ -152,8 +183,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
 
   const spawnFloatingText = (x: number, y: number, text: string, color: string) => {
-    // Performance: Limit floating texts
-    if (floatingTextsRef.current.length >= MAX_FLOATING_TEXTS) {
+    // Performance: Limit floating texts based on device
+    const maxTexts = perfSettings.maxFloatingTexts;
+    if (floatingTextsRef.current.length >= maxTexts) {
       floatingTextsRef.current.shift();
     }
     floatingTextsRef.current.push({
@@ -170,9 +202,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const spawnParticles = (x: number, y: number, type: 'spark' | 'dust' | 'confetti', count: number) => {
     // Performance: Limit particles and reduce count on mobile
     const currentCount = particlesRef.current.length;
-    const maxToAdd = Math.max(0, MAX_PARTICLES - currentCount);
-    // Reduce particle count for better performance (50% reduction)
-    const reducedCount = Math.floor(count * 0.5);
+    const maxToAdd = Math.max(0, perfSettings.maxParticles - currentCount);
+    // Aggressive reduction on mobile for better performance
+    const reducedCount = Math.floor(count * perfSettings.particleSpawnMultiplier);
     const actualCount = Math.min(reducedCount, maxToAdd);
     
     for (let i = 0; i < actualCount; i++) {
@@ -203,8 +235,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   const initDecor = () => {
     const bg: DecorObject[] = [];
     
-    // Background Pillars (reduced from 15 to 8 for performance)
-    for(let i=0; i<8; i++) {
+    // Background Pillars (device-optimized count)
+    for(let i=0; i<perfSettings.decorPillars; i++) {
       bg.push({
         id: i + 500,
         x: Math.random() * 2500,
@@ -218,8 +250,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       });
     }
 
-    // Surreal Flux Lines (reduced from 15 to 8 for performance)
-    for(let i=0; i<8; i++) {
+    // Surreal Flux Lines (device-optimized count)
+    for(let i=0; i<perfSettings.decorFlux; i++) {
         bg.push({
             id: i,
             x: Math.random() * 2000,
@@ -233,8 +265,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         });
     }
 
-    // Geometric Shapes (reduced from 5 to 3 for performance)
-    for(let i=0; i<3; i++) {
+    // Geometric Shapes (device-optimized count)
+    for(let i=0; i<perfSettings.decorGeo; i++) {
         bg.push({
             id: i + 100,
             x: Math.random() * 2000,
@@ -248,8 +280,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         });
     }
 
-    // Dust Particles (reduced from 20 to 10 for performance)
-    for(let i=0; i<10; i++) {
+    // Dust Particles (device-optimized count)
+    for(let i=0; i<perfSettings.decorDust; i++) {
         bg.push({
             id: i + 200,
             x: Math.random() * 2000,
@@ -491,22 +523,26 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       }
     });
     
-    // Update player trail (reduced for performance)
-    playerTrailRef.current = playerTrailRef.current
-      .map(t => ({ ...t, life: t.life - safeDt * 2 }))
-      .filter(t => t.life > 0);
-    
-    // Add to trail (reduced frequency for performance)
-    if ((stateRef.current === PlayerState.WALKING || stateRef.current === PlayerState.IDLE) && Math.random() < 0.5) {
-      playerTrailRef.current.push({
-        x: playerRef.current.x,
-        y: playerRef.current.y,
-        life: 0.5,
-      });
-      // Limit trail length (reduced from 10 to 5 for performance)
-      if (playerTrailRef.current.length > 5) {
-        playerTrailRef.current.shift();
+    // Update player trail (disabled on mobile for performance)
+    if (perfSettings.enablePlayerTrail) {
+      playerTrailRef.current = playerTrailRef.current
+        .map(t => ({ ...t, life: t.life - safeDt * 2 }))
+        .filter(t => t.life > 0);
+      
+      // Add to trail (reduced frequency for performance)
+      if ((stateRef.current === PlayerState.WALKING || stateRef.current === PlayerState.IDLE) && Math.random() < perfSettings.playerTrailSpawnChance) {
+        playerTrailRef.current.push({
+          x: playerRef.current.x,
+          y: playerRef.current.y,
+          life: 0.5,
+        });
+        // Limit trail length (device-optimized)
+        if (playerTrailRef.current.length > perfSettings.playerTrailMax) {
+          playerTrailRef.current.shift();
+        }
       }
+    } else {
+      playerTrailRef.current = [];
     }
 
     const state = stateRef.current;
@@ -694,8 +730,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       playerScaleYRef.current = 1 + Math.sin(timeRef.current * 20) * 0.1;
       playerScaleXRef.current = 1 - Math.sin(timeRef.current * 20) * 0.05;
 
-      // Reduced particle spawn frequency for performance (from 0.1 to 0.05)
-      if (Math.random() < 0.05) spawnParticles(playerRef.current.x, 0, 'dust', 1);
+      // Reduced particle spawn frequency for performance (even more on mobile)
+      const dustSpawnChance = perfSettings.isMobile ? 0.02 : 0.05;
+      if (Math.random() < dustSpawnChance) spawnParticles(playerRef.current.x, 0, 'dust', 1);
 
       const stickX = stickRef.current.x;
       const stickLen = stickRef.current.length;
@@ -816,9 +853,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     };
     
     // More sensitive change detection during GROWING for smooth stick growth
+    // On mobile, use slightly higher thresholds to reduce update frequency while maintaining smoothness
     const isGrowing = state === PlayerState.GROWING;
-    const positionThreshold = isGrowing ? 0.1 : 0.5; // More sensitive during growing
-    const stickLengthThreshold = isGrowing ? 0.1 : 0.5; // More sensitive during growing
+    const baseThreshold = perfSettings.isMobile ? 0.15 : 0.1;
+    const positionThreshold = isGrowing ? baseThreshold : (perfSettings.isMobile ? 0.6 : 0.5);
+    const stickLengthThreshold = isGrowing ? baseThreshold : (perfSettings.isMobile ? 0.6 : 0.5);
     
     const hasSignificantChange = 
       needsUpdate ||
@@ -931,17 +970,27 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         style={{ 
           transform: `translate3d(0, 0, 0) scale(${viewState.cameraZoom})`, 
           transformOrigin: 'center center',
-          willChange: 'transform'
+          willChange: 'transform',
+          backfaceVisibility: 'hidden', // GPU optimization
+          perspective: '1000px' // GPU optimization
         }}
       >
         {/* Background Decor Layer - Surreal 3D Flux */}
-        <div className="absolute inset-0 pointer-events-none" style={{ transformStyle: 'preserve-3d' }}>
+        <div 
+          className="absolute inset-0 pointer-events-none" 
+          style={{ 
+            transformStyle: 'preserve-3d',
+            contain: 'layout style paint', // CSS containment for better performance
+            willChange: 'transform'
+          }}
+        >
             {viewState.bgDecor.map(d => {
                 const parallaxX = (d.x - viewState.cameraX * d.speed) % 2000;
                 const renderX = parallaxX < 0 ? parallaxX + 2000 : parallaxX;
                 
-                // Skip rendering if off-screen for performance
-                if (renderX < -100 || renderX > window.innerWidth + 100) {
+                // Skip rendering if off-screen for performance (more aggressive on mobile)
+                const margin = perfSettings.isMobile ? 50 : 100;
+                if (renderX < -margin || renderX > window.innerWidth + margin) {
                   return null;
                 }
                 
@@ -1005,24 +1054,39 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
         <div 
             className="cyber-ceiling" 
-            style={{ backgroundPositionX: `${-viewState.cameraX * 0.5}px` }}
+            style={{ 
+              backgroundPositionX: `${-viewState.cameraX * 0.5}px`,
+              willChange: 'background-position',
+              backfaceVisibility: 'hidden' // GPU optimization
+            }}
         />
         <div 
             className="cyber-grid" 
-            style={{ backgroundPositionX: `${-viewState.cameraX * 0.5}px` }}
+            style={{ 
+              backgroundPositionX: `${-viewState.cameraX * 0.5}px`,
+              willChange: 'background-position',
+              backfaceVisibility: 'hidden' // GPU optimization
+            }}
         />
 
-        {/* Dynamic Vertical Lines for Depth Perception (reduced from 12 to 8 for performance) */}
-        <div className="absolute inset-0 pointer-events-none">
-            {Array.from({ length: 8 }).map((_, i) => {
+        {/* Dynamic Vertical Lines for Depth Perception (device-optimized count) */}
+        <div 
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            contain: 'layout style paint', // CSS containment for better performance
+            willChange: 'transform'
+          }}
+        >
+            {Array.from({ length: perfSettings.verticalLines }).map((_, i) => {
                const spacing = 300;
-               const totalWidth = spacing * 8;
+               const totalWidth = spacing * perfSettings.verticalLines;
                // Parallax factor 0.5 to match grid
                const xPos = ((i * spacing) - (viewState.cameraX * 0.5)) % totalWidth;
                const renderX = xPos < 0 ? xPos + totalWidth : xPos;
                
-               // Skip rendering if off-screen
-               if (renderX < -50 || renderX > window.innerWidth + 50) {
+               // Skip rendering if off-screen (more aggressive on mobile)
+               const margin = perfSettings.isMobile ? 30 : 50;
+               if (renderX < -margin || renderX > window.innerWidth + margin) {
                  return null;
                }
                
@@ -1033,7 +1097,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                     style={{ 
                       left: `${renderX}px`,
                       willChange: 'left',
-                      transform: 'translate3d(0, 0, 0)'
+                      transform: 'translate3d(0, 0, 0)',
+                      backfaceVisibility: 'hidden' // GPU optimization
                     }}
                  />
                );
@@ -1045,7 +1110,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         {/* Game Layer */}
         <div 
             className="absolute top-0 left-0 w-full h-full pointer-events-none"
-            style={{ transformStyle: 'preserve-3d' }}
+            style={{ 
+              transformStyle: 'preserve-3d',
+              contain: 'layout style paint', // CSS containment for better performance
+              willChange: 'transform'
+            }}
         >
             {viewState.platforms.map(platform => {
             const isOffScreen = getRenderX(platform.x + platform.width) < -200;
@@ -1075,6 +1144,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                     height: `${PLATFORM_HEIGHT}px`,
                     willChange: 'transform',
                     transform: 'translate3d(0, 0, 0)',
+                    backfaceVisibility: 'hidden', // GPU optimization
+                    WebkitTransform: 'translateZ(0)' // Force GPU acceleration on WebKit
                 }}
                 >
                 {/* 3D Side Face */}
@@ -1119,8 +1190,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
             {viewState.particles.map(p => {
               const renderX = getRenderX(p.x);
-              // Skip rendering if off-screen for performance
-              if (renderX < -50 || renderX > window.innerWidth + 50 || p.y < -100 || p.y > 600) {
+              // Skip rendering if off-screen for performance (more aggressive on mobile)
+              const margin = perfSettings.isMobile ? 30 : 50;
+              if (renderX < -margin || renderX > window.innerWidth + margin || p.y < -100 || p.y > 600) {
                 return null;
               }
               return (
@@ -1134,9 +1206,10 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                     height: `${p.size}px`,
                     backgroundColor: p.color,
                     opacity: p.life,
-                    boxShadow: `0 0 ${p.size * 2}px ${p.color}`,
+                    boxShadow: perfSettings.isMobile ? 'none' : `0 0 ${p.size * 2}px ${p.color}`, // Disable shadows on mobile for performance
                     willChange: 'transform, opacity',
-                    transform: 'translate3d(0, 0, 0)'
+                    transform: 'translate3d(0, 0, 0)',
+                    backfaceVisibility: 'hidden' // GPU optimization
                     }}
                 />
               );
@@ -1145,8 +1218,10 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             {/* Floating Text Overlay */}
             {viewState.floatingTexts.map(t => {
               const renderX = getRenderX(t.x);
-              // Skip rendering if off-screen or too faded
-              if (renderX < -100 || renderX > window.innerWidth + 100 || t.life < 0.1) {
+              // Skip rendering if off-screen or too faded (more aggressive on mobile)
+              const margin = perfSettings.isMobile ? 50 : 100;
+              const minLife = perfSettings.isMobile ? 0.2 : 0.1;
+              if (renderX < -margin || renderX > window.innerWidth + margin || t.life < minLife) {
                 return null;
               }
               return (
@@ -1180,14 +1255,16 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                 transform: `translate3d(0, 0, 0) rotate(${viewState.stickRotation}deg)`,
                 willChange: 'transform, height',
                 boxShadow: `0 0 ${stateRef.current === PlayerState.GROWING ? '30px' : '15px'} rgba(253,224,71,0.8)`,
-                background: '#facc15'
+                background: '#facc15',
+                backfaceVisibility: 'hidden', // GPU optimization
+                WebkitTransform: 'translateZ(0)' // Force GPU acceleration on WebKit
             }}
             >
                 <div className={`w-full h-full bg-white`} />
             </div>
 
-            {/* Player Trail (limited to last 5 for performance) */}
-            {viewState.playerTrail.slice(-5).map((trail, i) => (
+            {/* Player Trail (device-optimized, disabled on mobile) */}
+            {perfSettings.enablePlayerTrail && viewState.playerTrail.slice(-perfSettings.playerTrailMax).map((trail, i) => (
               <div
                 key={`trail-${i}`}
                 className={`absolute rounded-sm z-15 ${skinColor}`}
@@ -1217,7 +1294,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
                     scale(${viewState.playerScaleX}, ${viewState.playerScaleY})
                 `,
                 transformOrigin: 'bottom center',
-                willChange: 'transform'
+                willChange: 'transform',
+                backfaceVisibility: 'hidden', // GPU optimization
+                WebkitTransform: 'translateZ(0)' // Force GPU acceleration on WebKit
             }}
             >
             <div className="absolute top-1 right-1 w-2.5 h-2.5 bg-white rounded-full shadow-[0_0_5px_white]" />

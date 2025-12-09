@@ -23,18 +23,27 @@ export const useGameLoop = (
       // Cap deltaTime to prevent large jumps
       const safeDeltaTime = Math.min(deltaTime, 0.05);
       
-      // FPS monitoring and adaptive frame skipping (less aggressive for smoother gameplay)
+      // FPS monitoring and adaptive frame skipping (optimized for mobile)
       frameCountRef.current++;
       if (time - lastFpsCheckRef.current > 1000) {
         const currentFps = frameCountRef.current;
         frameCountRef.current = 0;
         lastFpsCheckRef.current = time;
         
-        // Less aggressive frame skipping - only skip if FPS is really low
-        if (currentFps < 40) {
-          targetFpsRef.current = Math.max(35, currentFps - 3);
+        // More responsive FPS adjustment for mobile devices
+        // On mobile, be more aggressive about maintaining smoothness
+        if (currentFps < 30) {
+          // Very low FPS - reduce target significantly
+          targetFpsRef.current = Math.max(25, currentFps - 5);
+        } else if (currentFps < 40) {
+          // Low FPS - reduce target moderately
+          targetFpsRef.current = Math.max(30, currentFps - 3);
         } else if (currentFps >= 55) {
-          targetFpsRef.current = 60; // Target 60fps for smooth gameplay
+          // Good FPS - target 60fps for smooth gameplay
+          targetFpsRef.current = 60;
+        } else {
+          // Medium FPS - gradually increase target
+          targetFpsRef.current = Math.min(60, currentFps + 2);
         }
       }
       
