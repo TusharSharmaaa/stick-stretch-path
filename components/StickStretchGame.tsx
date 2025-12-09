@@ -23,7 +23,24 @@ import {
   PLATFORM_VARIETY_CHANCE,
   MAX_PARTICLES,
   MAX_FLOATING_TEXTS,
-  MAX_STICK_LENGTH
+  MAX_STICK_LENGTH,
+  FALLING_DEATH_THRESHOLD,
+  PERFECT_LANDING_TOLERANCE,
+  PLAYER_PLATFORM_OFFSET,
+  COMBO_FEVER_THRESHOLD,
+  PLATFORM_FINDING_MARGIN,
+  ICE_PLATFORM_SIZE_REDUCTION,
+  NARROW_PLATFORM_SIZE_REDUCTION,
+  MIN_PLATFORM_SIZE,
+  PERFECT_BONUS_BASE,
+  PERFECT_BONUS_FEVER,
+  MAGNET_TOLERANCE_BOOST,
+  MAGNET_SPEED_BOOST,
+  BOUNCY_PLATFORM_BOOST,
+  PARTICLE_OFFSCREEN_MARGIN,
+  FLOATING_TEXT_OFFSCREEN_MARGIN,
+  DOUBLE_TAP_WINDOW,
+  STICK_ROTATION_SAFETY_TIME
 } from '../constants';
 import { startGrowSound, stopGrowSound, playStickHit, playSuccess, playFail, playCoin } from '../utils/audio';
 
@@ -135,8 +152,8 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   
   // Throttle state updates for better performance (but keep responsive during critical states)
   const stateUpdateFrameSkipRef = useRef<number>(0);
-  // More aggressive throttling on mobile, but still smooth
-  const STATE_UPDATE_INTERVAL = perfSettings.isMobile ? 1 : 1; // Keep at 1 for smoothness, but optimize elsewhere
+  // State update interval - kept at 1 for smoothness (optimization happens elsewhere)
+  const STATE_UPDATE_INTERVAL = 1;
 
   // React State for rendering
   const [viewState, setViewState] = useState({
@@ -171,9 +188,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
   };
   
   const activatePowerUp = (type: PowerUpType) => {
+    // Shield is one-time use (not time-based), but we store it in the same system for consistency
+    // It will be deleted immediately when consumed
     powerUpsRef.current.set(type, {
       active: true,
-      timeLeft: POWER_UP_DURATIONS[type],
+      timeLeft: type === 'shield' ? 1 : POWER_UP_DURATIONS[type], // Shield uses 1 as placeholder
     });
     spawnFloatingText(playerRef.current.x, 150, type.toUpperCase(), '#fcd34d');
   };
@@ -306,9 +325,19 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     document.addEventListener('contextmenu', handleContextMenu);
 
     if (isReviving && platformsRef.current.length > 0) {
-      // Safe Revive
-      const lastSafePlat = platformsRef.current[platformsRef.current.length - 2] || platformsRef.current[0];
-      const targetX = lastSafePlat.x + lastSafePlat.width - PLAYER_SIZE - 5;
+      // Safe Revive - use second-to-last platform if available, otherwise use first
+      // Add bounds checking to prevent array access errors
+      const safeIndex = platformsRef.current.length >= 2 
+        ? platformsRef.current.length - 2 
+        : 0;
+      const lastSafePlat = platformsRef.current[safeIndex];
+      
+      if (!lastSafePlat) {
+        console.error('No platforms available for revive');
+        return () => document.removeEventListener('contextmenu', handleContextMenu);
+      }
+      
+      const targetX = lastSafePlat.x + lastSafePlat.width - PLAYER_SIZE - PLAYER_PLATFORM_OFFSET;
       
       playerRef.current = { x: targetX, y: 0 };
       stickRef.current = { x: lastSafePlat.x + lastSafePlat.width, length: 0, rotation: 0 };
@@ -351,7 +380,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     };
 
     platformsRef.current = [firstPlatform, secondPlatform];
-    playerRef.current = { x: startX + INITIAL_PLATFORM_WIDTH - PLAYER_SIZE - 5, y: 0 };
+    playerRef.current = { x: startX + INITIAL_PLATFORM_WIDTH - PLAYER_SIZE - PLAYER_PLATFORM_OFFSET, y: 0 };
     stickRef.current = { x: startX + INITIAL_PLATFORM_WIDTH, length: 0, rotation: 0 };
     cameraXRef.current = 0;
     scoreRef.current = 0;
@@ -427,7 +456,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       coins = Math.floor(Math.random() * 3) + 1;
     } else if (scoreRef.current >= 10 && Math.random() < PLATFORM_VARIETY_CHANCE.ice) {
       platformType = 'ice';
-      width = Math.max(60, width - 10); // Ice platforms are smaller
+      width = Math.max(MIN_PLATFORM_SIZE, width - ICE_PLATFORM_SIZE_REDUCTION); // Ice platforms are smaller
     } else if (scoreRef.current >= 15 && Math.random() < PLATFORM_VARIETY_CHANCE.bouncy) {
       platformType = 'bouncy';
     } else if (scoreRef.current >= 20 && Math.random() < PLATFORM_VARIETY_CHANCE.breakable) {
@@ -435,7 +464,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     }
 
     if (scoreRef.current >= 5 && Math.random() < 0.3) {
-      width = Math.max(60, width - 20);
+      width = Math.max(MIN_PLATFORM_SIZE, width - NARROW_PLATFORM_SIZE_REDUCTION);
     } else {
       width = Math.max(MIN_PLATFORM_WIDTH, width + (Math.random() * 15 - 7.5));
     }
@@ -488,19 +517,23 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     const stickLen = stickRef.current.length;
     const stickX = stickRef.current.x;
     
-    const targetPlatform = platformsRef.current.find(p => p.x > stickX || (p.x + p.width > stickX + 10));
+    // Find the target platform - prefer isTarget flag, fallback to position-based finding
+    let targetPlatform = platformsRef.current.find(p => p.isTarget);
+    if (!targetPlatform) {
+      // Fallback: find first platform ahead of stick
+      targetPlatform = platformsRef.current.find(p => p.x > stickX || (p.x + p.width > stickX + 10));
+    }
 
     if (!targetPlatform) return false;
 
-    if (targetPlatform.isMoving) {
-      targetPlatform.isMoving = false;
-    }
+    // Don't stop moving platform immediately - let it continue until player actually lands
+    // The platform will stop naturally when player reaches it in WALKING state
 
     const stickTipX = stickX + stickLen;
     const tolerance = getDynamicTolerance(); 
     
     const landed = stickTipX >= targetPlatform.x - tolerance && stickTipX <= (targetPlatform.x + targetPlatform.width + tolerance);
-    const perfect = Math.abs(stickTipX - (targetPlatform.x + targetPlatform.width / 2)) < 8;
+    const perfect = Math.abs(stickTipX - (targetPlatform.x + targetPlatform.width / 2)) < PERFECT_LANDING_TOLERANCE;
 
     return { success: landed, perfect, target: targetPlatform };
   };
@@ -515,14 +548,15 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     timeRef.current += safeDt;
     hueRotationRef.current = (hueRotationRef.current + 5 * safeDt) % 360;
     
-    // Update power-ups
+    // Update power-ups (shield is one-time use, so skip time-based updates for it)
     powerUpsRef.current.forEach((powerUp, type) => {
-      if (powerUp.active) {
+      if (powerUp.active && type !== 'shield') {
         powerUp.timeLeft -= safeDt;
         if (powerUp.timeLeft <= 0) {
           powerUpsRef.current.delete(type);
         }
       }
+      // Shield is consumed immediately when used, not time-based
     });
     
     // Update player trail (disabled on mobile for performance)
@@ -594,7 +628,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         p.vx -= p.vx * PARTICLE_DRAG * safeDt;
         p.life -= safeDt * 1.5;
         // Remove if dead or off-screen
-        return p.life > 0 && p.y > -100 && p.y < 600;
+        return p.life > 0 && p.y > -PARTICLE_OFFSCREEN_MARGIN && p.y < FALLING_DEATH_THRESHOLD;
       });
       // Only update if particles changed
       if (particlesRef.current.length !== beforeLength) {
@@ -608,7 +642,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         t.y += t.velocityY * safeDt;
         t.life -= safeDt * 0.8;
         // Remove if dead or off-screen
-        return t.life > 0 && t.y < 600;
+        return t.life > 0 && t.y < FALLING_DEATH_THRESHOLD;
       });
       // Only update if texts changed
       if (floatingTextsRef.current.length !== beforeLength) {
@@ -642,7 +676,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       stickRotationVelocityRef.current += STICK_FALL_ACCEL * safeDt;
       stickRef.current.rotation += stickRotationVelocityRef.current * safeDt;
 
-      const isSafetyStop = rotationPhaseTimeRef.current > 1.2;
+      const isSafetyStop = rotationPhaseTimeRef.current > STICK_ROTATION_SAFETY_TIME;
 
       if (stickRef.current.rotation >= 90 || isSafetyStop) {
         stickRef.current.rotation = 90;
@@ -679,12 +713,12 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
             if (result.perfect) {
                perfectCountRef.current += 1;
                comboRef.current += 1;
-               const bonus = comboRef.current >= 3 ? 2 : 1;
+               const bonus = comboRef.current >= COMBO_FEVER_THRESHOLD ? PERFECT_BONUS_FEVER : PERFECT_BONUS_BASE;
                const doubleCoins = powerUpsRef.current.get('doubleCoins')?.active;
                const finalBonus = doubleCoins ? bonus * 2 : bonus;
                
                const perfectLoc = result.target.x + result.target.width / 2;
-               spawnFloatingText(perfectLoc, 100, comboRef.current >= 3 ? 'FEVER!' : 'PERFECT!', comboRef.current >= 3 ? '#fcd34d' : '#bef264');
+               spawnFloatingText(perfectLoc, 100, comboRef.current >= COMBO_FEVER_THRESHOLD ? 'FEVER!' : 'PERFECT!', comboRef.current >= COMBO_FEVER_THRESHOLD ? '#fcd34d' : '#bef264');
                
                onCoinCollected(finalBonus);
                onGameEvent?.({ type: 'perfect', value: perfectCountRef.current });
@@ -710,6 +744,20 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
              if (shieldActive) {
                powerUpsRef.current.delete('shield');
                spawnFloatingText(playerRef.current.x, 150, 'SHIELD!', '#60a5fa');
+               
+               // Find target platform and position player/stick correctly for walking
+               const targetPlatform = platformsRef.current.find(p => p.isTarget);
+               if (targetPlatform) {
+                 // Position stick tip at target platform center (simulate successful landing)
+                 const targetCenter = targetPlatform.x + targetPlatform.width / 2;
+                 stickRef.current.length = targetCenter - stickRef.current.x;
+                 stickRef.current.rotation = 90;
+                 
+                 // Set player destination to target platform
+                 const destinationX = targetPlatform.x + targetPlatform.width - PLAYER_SIZE - 5;
+                 playerRef.current.x = Math.min(playerRef.current.x, destinationX);
+               }
+               
                // Continue as if successful - WALKING state will handle movement to target platform
                stateRef.current = PlayerState.WALKING;
              } else {
@@ -725,7 +773,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     else if (state === PlayerState.WALKING) {
       // Magnet power-up: pull player slightly toward target platform
       const magnetActive = powerUpsRef.current.get('magnet')?.active;
-      const walkSpeed = magnetActive ? PLAYER_WALK_SPEED * 1.2 : PLAYER_WALK_SPEED;
+      const walkSpeed = magnetActive ? PLAYER_WALK_SPEED * MAGNET_SPEED_BOOST : PLAYER_WALK_SPEED;
       
       playerRef.current.x += walkSpeed * safeDt;
       
@@ -738,7 +786,12 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
       const stickX = stickRef.current.x;
       const stickLen = stickRef.current.length;
-      const targetPlatform = platformsRef.current.find(p => p.x > stickX - 20 && p.id > 1);
+      // Find target platform - prefer isTarget flag, fallback to position-based finding
+      let targetPlatform = platformsRef.current.find(p => p.isTarget);
+      if (!targetPlatform) {
+        // Fallback: find first platform ahead of stick
+        targetPlatform = platformsRef.current.find(p => p.x > stickX - 20 && p.id > 1);
+      }
       
       let destinationX = 0;
       let success = false;
@@ -750,7 +803,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         
         // Magnet power-up increases tolerance
         if (magnetActive) {
-          tolerance += 10;
+          tolerance += MAGNET_TOLERANCE_BOOST;
         }
         
         const landed = stickTipX >= targetPlatform.x - tolerance && stickTipX <= (targetPlatform.x + targetPlatform.width + tolerance);
@@ -758,11 +811,11 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
         if (landed) {
           // Bouncy platform gives extra boost
           if (targetPlatform.type === 'bouncy') {
-            velocityYRef.current = -200; // Small bounce
+            velocityYRef.current = -BOUNCY_PLATFORM_BOOST; // Small bounce
             spawnParticles(targetPlatform.x + targetPlatform.width / 2, 0, 'spark', 15);
           }
           
-          destinationX = targetPlatform.x + targetPlatform.width - PLAYER_SIZE - 5;
+          destinationX = targetPlatform.x + targetPlatform.width - PLAYER_SIZE - PLAYER_PLATFORM_OFFSET;
           success = true;
         } else {
           destinationX = stickX + stickLen + PLAYER_SIZE; 
@@ -821,9 +874,9 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
       velocityYRef.current += GRAVITY * safeDt;
       playerRef.current.y += velocityYRef.current * safeDt;
       playerRef.current.x += (PLAYER_WALK_SPEED * 0.5) * safeDt;
-      playerRef.current.y += 10 * safeDt; 
+      // Removed duplicate Y increment - was causing player to fall too fast 
 
-      if (playerRef.current.y > 600) {
+      if (playerRef.current.y > FALLING_DEATH_THRESHOLD) {
         stateRef.current = PlayerState.GAME_OVER; 
         onGameOver(scoreRef.current);
       }
@@ -919,7 +972,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
     // Double tap to pause (when not in IDLE or GROWING state)
     if (stateRef.current !== PlayerState.IDLE && stateRef.current !== PlayerState.GROWING && !isPausedRef.current) {
       const now = Date.now();
-      if (now - lastTapRef.current < 300) {
+      if (now - lastTapRef.current < DOUBLE_TAP_WINDOW) {
         togglePause();
         lastTapRef.current = 0;
         return;
@@ -1194,7 +1247,7 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
               const renderX = getRenderX(p.x);
               // Skip rendering if off-screen for performance (more aggressive on mobile)
               const margin = perfSettings.isMobile ? 30 : 50;
-              if (renderX < -margin || renderX > window.innerWidth + margin || p.y < -100 || p.y > 600) {
+              if (renderX < -margin || renderX > window.innerWidth + margin || p.y < -PARTICLE_OFFSCREEN_MARGIN || p.y > FALLING_DEATH_THRESHOLD) {
                 return null;
               }
               return (

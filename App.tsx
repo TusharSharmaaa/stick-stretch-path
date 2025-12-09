@@ -168,7 +168,7 @@ function App() {
       }
     }
     
-    console.log("Game Loaded: Enhanced Features");
+    // Game loaded successfully
   }, []);
 
   // Update settings
@@ -195,16 +195,31 @@ function App() {
   }, [nativeAdsAvailable]);
 
   const showAd = (type: AdType, onComplete: (success: boolean) => void) => {
-    if (nativeAdsAvailable) {
-      const presenter = type === 'REWARDED' ? showNativeRewardedAd : showNativeInterstitialAd;
-      presenter()
-        .then((result) => onComplete(result))
-        .catch(() => onComplete(false));
-      return;
-    }
+    try {
+      if (nativeAdsAvailable) {
+        const presenter = type === 'REWARDED' ? showNativeRewardedAd : showNativeInterstitialAd;
+        presenter()
+          .then((result) => {
+            try {
+              onComplete(result);
+            } catch (error) {
+              console.error('Error in ad completion callback:', error);
+              onComplete(false);
+            }
+          })
+          .catch((error) => {
+            console.error('Error showing ad:', error);
+            onComplete(false);
+          });
+        return;
+      }
 
-    setActiveOverlayAd(type);
-    setAdCallback(() => onComplete);
+      setActiveOverlayAd(type);
+      setAdCallback(() => onComplete);
+    } catch (error) {
+      console.error('Error in showAd:', error);
+      onComplete(false);
+    }
   };
 
   const handlePurchaseBoost = (boostId: string, overrideCost?: number) => {
@@ -300,19 +315,27 @@ function App() {
       setBestScore(finalScore);
       setHighScore(finalScore);
     }
-    let earnedCoins = finalScore + currentGameStats.coinsCollected;
+    // Calculate base coins from score (coins collected during gameplay are already added to state)
+    // Only add score-based coins at game over to avoid double counting
+    let earnedCoins = finalScore;
     activeBoosts.forEach(boostId => {
       const boost = boostDefinitions[boostId];
       if (!boost) return;
       if (boost.effect === 'coinMultiplier') {
+        // Apply multiplier to base score only (coins collected during gameplay were already added)
         earnedCoins = Math.round(earnedCoins * boost.modifier);
       } else if (boost.effect === 'flatBonus') {
         earnedCoins += boost.modifier;
       }
     });
-    const newTotalCoins = coins + earnedCoins;
-    setCoins(newTotalCoins);
-    saveCoins(newTotalCoins);
+    // Only add the score-based coins (coins collected during gameplay via onCoinCollected are already in state)
+    if (earnedCoins > 0) {
+      setCoins(prevCoins => {
+        const newTotalCoins = prevCoins + earnedCoins;
+        saveCoins(newTotalCoins);
+        return newTotalCoins;
+      });
+    }
     
     // Update statistics (achievements count is updated after re-check)
     const updatedStats: GameStats = {
@@ -410,11 +433,13 @@ function App() {
       const newPending = [...pending, ...completedChallenges];
       localStorage.setItem('stick-stretch-pending-challenges', JSON.stringify(newPending));
       
-      // Award coins immediately
+      // Award coins immediately - use functional update to ensure we have latest coins value
       const totalReward = completedChallenges.reduce((sum, c) => sum + c.reward, 0);
-      const rewardCoins = coins + totalReward;
-      setCoins(rewardCoins);
-      saveCoins(rewardCoins);
+      setCoins(prevCoins => {
+        const newCoins = prevCoins + totalReward;
+        saveCoins(newCoins);
+        return newCoins;
+      });
     }
     
     // Increment death count for interstitial logic

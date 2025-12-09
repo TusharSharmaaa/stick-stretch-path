@@ -104,8 +104,8 @@ const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, 
                     alert('Score copied to clipboard!');
                   }
                 } catch (err) {
-                  // User cancelled or error occurred
-                  console.log('Share cancelled or failed');
+                  // User cancelled or error occurred - silently fail
+                  // Share API failures are expected and don't need logging
                 }
               }}
               className="h-12 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg transform -skew-x-12 font-bold text-slate-300 hover:text-white transition-colors flex items-center justify-center"

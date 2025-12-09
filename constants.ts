@@ -32,6 +32,25 @@ export const STICK_WIDTH = 6; // Thicker stick to match bigger blocks
 export const GAME_HEIGHT_OFFSET = 300; // Where the ground line is from bottom
 export const MAX_STICK_LENGTH = 800; // Maximum stick length before auto-rotation
 
+// Game Logic Constants
+export const FALLING_DEATH_THRESHOLD = 600; // Y position where player dies
+export const PERFECT_LANDING_TOLERANCE = 8; // Pixels from center for perfect landing
+export const PLAYER_PLATFORM_OFFSET = 5; // Offset from platform edge for player positioning
+export const COMBO_FEVER_THRESHOLD = 3; // Combo count needed for fever mode
+export const PLATFORM_FINDING_MARGIN = 20; // Margin for finding platforms ahead of stick
+export const ICE_PLATFORM_SIZE_REDUCTION = 10; // How much smaller ice platforms are
+export const NARROW_PLATFORM_SIZE_REDUCTION = 20; // Size reduction for narrow platforms
+export const MIN_PLATFORM_SIZE = 60; // Minimum platform size after reductions
+export const PERFECT_BONUS_BASE = 1; // Base bonus coins for perfect landing
+export const PERFECT_BONUS_FEVER = 2; // Bonus coins for perfect during fever
+export const MAGNET_TOLERANCE_BOOST = 10; // Additional tolerance when magnet is active
+export const MAGNET_SPEED_BOOST = 1.2; // Speed multiplier when magnet is active
+export const BOUNCY_PLATFORM_BOOST = 200; // Vertical velocity boost from bouncy platform
+export const PARTICLE_OFFSCREEN_MARGIN = 100; // Margin for particle cleanup
+export const FLOATING_TEXT_OFFSCREEN_MARGIN = 100; // Margin for floating text cleanup
+export const DOUBLE_TAP_WINDOW = 300; // Milliseconds for double tap detection
+export const STICK_ROTATION_SAFETY_TIME = 1.2; // Seconds before force-stopping stick rotation
+
 // Monetization
 export const AD_COIN_REWARD = 40;
 export const INITIAL_COINS = 0;

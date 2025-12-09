@@ -1,3 +1,5 @@
+import { GameStats, Achievement, DailyChallenge } from '../types';
+
 export const getHighScore = (): number => {
   try {
     const score = localStorage.getItem('stick-stretch-highscore');
@@ -123,7 +125,7 @@ export const getStats = () => {
   }
 };
 
-export const saveStats = (stats: any) => {
+export const saveStats = (stats: GameStats) => {
   try {
     localStorage.setItem('stick-stretch-stats', JSON.stringify(stats));
   } catch (e) {
@@ -142,7 +144,7 @@ export const getAchievements = () => {
   }
 };
 
-export const saveAchievements = (achievements: any[]) => {
+export const saveAchievements = (achievements: Achievement[]) => {
   try {
     localStorage.setItem('stick-stretch-achievements', JSON.stringify(achievements));
   } catch (e) {
@@ -169,11 +171,16 @@ export const markTutorialSeen = () => {
 };
 
 // Daily Challenges
-export const getDailyChallenges = () => {
+export const getDailyChallenges = (): DailyChallenge[] | null => {
   try {
     const challenges = localStorage.getItem('stick-stretch-daily-challenges');
     if (!challenges) return null;
     const parsed = JSON.parse(challenges);
+    // Validate parsed data structure
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.challenges)) {
+      console.warn('Invalid daily challenges data structure, resetting');
+      return null;
+    }
     // Check if expired (new day)
     const today = new Date().toDateString();
     const savedDate = parsed.date;
@@ -185,7 +192,7 @@ export const getDailyChallenges = () => {
   }
 };
 
-export const saveDailyChallenges = (challenges: any[]) => {
+export const saveDailyChallenges = (challenges: DailyChallenge[]) => {
   try {
     localStorage.setItem('stick-stretch-daily-challenges', JSON.stringify({
       date: new Date().toDateString(),

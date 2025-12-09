@@ -192,6 +192,17 @@ export const stopBackgroundMusic = () => {
   musicOsc = null;
 };
 
+// Cleanup function for app unmount - ensures no memory leaks
+export const cleanupAudio = () => {
+  stopBackgroundMusic();
+  stopGrowSound();
+  if (audioCtx && audioCtx.state !== 'closed') {
+    audioCtx.close().catch(console.error);
+    audioCtx = null;
+    gainNode = null;
+  }
+};
+
 export const setSoundEnabled = (enabled: boolean) => {
   if (gainNode) {
     gainNode.gain.value = enabled ? 0.2 : 0;

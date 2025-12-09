@@ -1,4 +1,4 @@
-import { Achievement } from '../types';
+import { Achievement, GameStats } from '../types';
 import { ACHIEVEMENTS } from '../constants';
 import { getAchievements, saveAchievements } from './storage';
 
@@ -44,7 +44,7 @@ export const updateAchievementProgress = (
 };
 
 export const checkAchievements = (
-  stats: any,
+  stats: GameStats,
   currentGame: { score: number; perfects: number; combo: number }
 ): { achievements: Achievement[]; newlyUnlocked: Achievement[] } => {
   let achievements = getAchievements();
