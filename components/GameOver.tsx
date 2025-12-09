@@ -14,7 +14,10 @@ const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, 
   // Local state removed, controlled by parent App.tsx now via onWatchAd
 
   return (
-    <div className="absolute inset-0 bg-[#050510]/95 z-20 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-fade-in overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div 
+      className="absolute inset-0 bg-[#050510]/95 z-20 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-fade-in overflow-y-auto overscroll-contain pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] touch-pan-y"
+      style={{ maxHeight: 'var(--app-height, 100vh)' }}
+    >
       {/* Background FX */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/20 via-transparent to-transparent pointer-events-none" />
       <div className="cyber-grid animate-grid-scroll opacity-30" />
@@ -22,7 +25,7 @@ const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, 
 
       {/* Title */}
       <div className="relative mb-8 text-center">
-         <h2 className="text-6xl font-black italic text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-pink-600 drop-shadow-[0_0_15px_rgba(236,72,153,0.5)] transform -skew-x-6">
+         <h2 className="text-[clamp(2.5rem,8vw,3.5rem)] font-black italic text-transparent bg-clip-text bg-gradient-to-br from-red-500 to-pink-600 drop-shadow-[0_0_15px_rgba(236,72,153,0.5)] transform -skew-x-6">
             GAME OVER
          </h2>
          <p className="text-cyan-400 font-mono text-xs tracking-[0.5em] uppercase mt-2 animate-pulse">DON'T GIVE UP</p>

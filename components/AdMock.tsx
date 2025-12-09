@@ -41,7 +41,10 @@ export const AdMock: React.FC<AdMockProps> = ({ type, onClose }) => {
 
   // Full Screen Ad Mock (Interstitial / Rewarded)
   return (
-    <div className="fixed inset-0 z-[999] bg-black flex flex-col items-center justify-center animate-fade-in">
+    <div 
+      className="fixed inset-0 z-[999] bg-black flex flex-col items-center justify-center animate-fade-in"
+      style={{ minHeight: 'var(--app-height, 100vh)' }}
+    >
       {/* Ad Header */}
       <div className="absolute top-0 left-0 w-full p-4 flex justify-between items-start safe-top">
         <div className="bg-black/50 text-white text-xs px-2 py-1 rounded flex items-center gap-1">

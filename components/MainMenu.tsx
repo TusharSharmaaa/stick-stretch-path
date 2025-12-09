@@ -185,7 +185,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
     : 0;
 
   return (
-    <div className="absolute inset-0 bg-[#050510] flex flex-col items-center justify-center overflow-hidden pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
+    <div className="absolute inset-0 bg-[#050510] flex flex-col items-center justify-center overflow-y-auto md:overflow-hidden overscroll-contain pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)]">
       {/* Background FX */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/40 via-[#050510] to-[#050510] pointer-events-none" />
       <div className="cyber-grid animate-grid-scroll" />
@@ -195,7 +195,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
       <div className="absolute top-10 left-10 w-2 h-2 bg-cyan-400 rounded-full animate-ping" />
       <div className="absolute bottom-20 right-10 w-3 h-3 bg-pink-500 rounded-full animate-bounce" />
 
-      <div className="z-10 w-full max-w-md px-6 flex flex-col items-center h-full justify-center">
+      <div className="z-10 w-full max-w-xl sm:max-w-3xl px-6 md:px-8 flex flex-col items-center h-full justify-center gap-6">
         
         {/* Tutorial Overlay */}
         {showTutorial && (
@@ -225,7 +225,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
         {activeTab === 'main' && (
           <div className="mb-12 text-center relative group cursor-default animate-fade-in">
             <div className="absolute inset-0 bg-pink-500 blur-[40px] opacity-20 animate-pulse" />
-            <h1 className="text-6xl font-black tracking-tighter italic transform -skew-x-6 relative">
+            <h1 className="text-[clamp(2.75rem,9vw,3.75rem)] leading-[1.05] font-black tracking-tighter italic transform -skew-x-6 relative">
               <span className="block text-transparent bg-clip-text bg-gradient-to-r from-white to-slate-400 drop-shadow-[0_0_10px_rgba(255,255,255,0.5)]">
                 STICK
               </span>
@@ -245,7 +245,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
             {/* Play Button */}
             <button
               onClick={onPlay}
-              className="group relative h-20 w-full transform -skew-x-12 transition-all hover:scale-105 active:scale-95"
+              className="group relative h-[clamp(3.75rem,14vw,5rem)] w-full transform -skew-x-12 transition-all hover:scale-105 active:scale-95"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-pink-600 to-purple-600 rounded-lg opacity-80 group-hover:opacity-100 transition-opacity blur-sm group-hover:blur-md" />
               <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-lg flex items-center justify-center border-2 border-white/20">
@@ -343,7 +343,10 @@ const MainMenu: React.FC<MainMenuProps> = ({
           </div>
         ) : activeTab === 'shop' ? (
           /* Shop / Loadout Screen - Responsive Modal */
-          <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-cyan-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
+          <div 
+            className="w-full flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-cyan-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative"
+            style={{ maxHeight: 'calc(var(--app-height, 100vh) - 2.5rem)' }}
+          >
             
             {/* Modal Badge */}
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black px-4 py-1 rounded-full border border-cyan-500 text-cyan-400 text-xs font-bold tracking-widest uppercase shadow-[0_0_15px_rgba(34,211,238,0.5)] z-20">
@@ -351,31 +354,31 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
 
             {/* Header Container (Fixed) */}
-            <div className="p-6 pb-2 flex-none">
-                <div className="flex justify-between items-center mb-4 mt-2">
-                <h2 className="text-2xl font-black text-white flex items-center gap-2 italic">
-                    <ShoppingBag className="w-6 h-6 text-yellow-400" /> SHOP
+            <div className="p-4 pb-2 flex-none">
+                <div className="flex justify-between items-center mb-3 mt-1">
+                <h2 className="text-xl font-black text-white flex items-center gap-2 italic">
+                    <ShoppingBag className="w-5 h-5 text-yellow-400" /> SHOP
                 </h2>
-                <div className="bg-black/50 px-4 py-1.5 rounded-lg border border-yellow-500/30 flex items-center gap-2">
+                <div className="bg-black/50 px-3 py-1 rounded-lg border border-yellow-500/30 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-yellow-400" />
-                    <span className="font-mono text-white font-bold">{coins.toLocaleString()}</span>
+                    <span className="font-mono text-white font-bold text-sm">{coins.toLocaleString()}</span>
                 </div>
                 </div>
                 
                 {/* Ad Incentivization Area */}
                 <button 
                     onClick={onWatchAd}
-                    className="w-full py-3 bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-xl border border-yellow-300/50 flex items-center justify-center gap-3 transform transition-transform active:scale-95 shadow-[0_0_20px_rgba(234,179,8,0.3)] animate-pulse hover:animate-none group mb-3"
+                    className="w-full py-2.5 bg-gradient-to-r from-yellow-600 to-yellow-500 rounded-xl border border-yellow-300/50 flex items-center justify-center gap-3 transform transition-transform active:scale-95 shadow-[0_0_16px_rgba(234,179,8,0.25)] animate-pulse hover:animate-none group mb-3"
                 >
-                    <Video className="w-6 h-6 text-black fill-current" />
-                    <span className="font-black text-black italic text-lg tracking-wider">WATCH AD</span>
-                    <span className="bg-black/20 px-2 py-0.5 rounded text-black font-bold text-sm">+{AD_COIN_REWARD} <Coins className="w-3 h-3 inline -mt-0.5" /></span>
+                    <Video className="w-5 h-5 text-black fill-current" />
+                    <span className="font-black text-black italic text-base tracking-wider">WATCH AD</span>
+                    <span className="bg-black/15 px-2 py-0.5 rounded text-black font-bold text-xs">+{AD_COIN_REWARD} <Coins className="w-3 h-3 inline -mt-0.5" /></span>
                 </button>
 
-                <div className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${shopDealsUnlocked ? 'border-cyan-400/50 bg-cyan-500/10' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
-                  <div>
-                    <p className="text-xs font-black tracking-[0.3em] text-slate-400 uppercase">VIP DEALS</p>
-                    <p className="text-white font-bold">-15% on skins & boosts {shopDealsUnlocked ? 'active' : 'after ad unlock'}</p>
+                <div className={`p-3 rounded-2xl border flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${shopDealsUnlocked ? 'border-cyan-400/50 bg-cyan-500/10' : 'border-yellow-500/40 bg-yellow-500/5'}`}>
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] font-black tracking-[0.3em] text-slate-400 uppercase">VIP DEALS</p>
+                    <p className="text-white font-bold text-sm leading-tight">-15% on skins & boosts {shopDealsUnlocked ? 'active' : 'after ad unlock'}</p>
                     <p className="text-[11px] text-slate-400">Watch a rewarded ad to unlock premium pricing.</p>
                   </div>
                   <button
@@ -383,7 +386,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                       if (!shopDealsUnlocked) onUnlockShopDeals();
                     }}
                     disabled={shopDealsUnlocked}
-                    className={`px-4 py-2 rounded-xl font-black uppercase tracking-wide text-xs border ${
+                    className={`px-3 py-2 rounded-xl font-black uppercase tracking-wide text-[11px] border ${
                       shopDealsUnlocked
                         ? 'bg-slate-800/70 text-slate-400 border-slate-700 cursor-not-allowed'
                         : 'bg-yellow-400/90 text-black border-yellow-200 hover:bg-yellow-300'
@@ -393,7 +396,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
                   </button>
                 </div>
 
-                <div className="mt-4 flex gap-3">
+                <div className="mt-3 flex gap-3">
                   <button
                     onClick={() => setShopCategory('skins')}
                     className={`flex-1 py-2 rounded-xl font-bold text-sm border ${
@@ -418,7 +421,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
 
             {/* Shop Content (Scrollable) */}
-            <div className="flex-1 overflow-y-auto px-6 custom-scrollbar space-y-3 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 custom-scrollbar space-y-3 pb-4 touch-pan-y overscroll-contain">
               {shopCategory === 'skins' ? (
                 SKINS.map((skin) => {
                   const isUnlocked = unlockedSkins.includes(skin.id);
@@ -614,14 +617,17 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
           </div>
         ) : activeTab === 'stats' ? (
-          <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-purple-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
+          <div 
+            className="w-full flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-purple-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative"
+            style={{ maxHeight: 'calc(var(--app-height, 100vh) - 2.5rem)' }}
+          >
             <div className="p-6 pb-2 flex-none">
               <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-1">
                 <BarChart3 className="w-6 h-6 text-purple-400" /> STATISTICS
               </h2>
               <p className="text-xs font-semibold text-slate-400 uppercase tracking-[0.3em]">Lifetime performance</p>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-6 pb-6">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-6 pb-6 touch-pan-y overscroll-contain">
               {stats ? (
                 <>
                   <section>
@@ -726,13 +732,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
           </div>
         ) : activeTab === 'achievements' ? (
-          <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-yellow-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
+          <div 
+            className="w-full flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-yellow-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative"
+            style={{ maxHeight: 'calc(var(--app-height, 100vh) - 2.5rem)' }}
+          >
             <div className="p-6 pb-2 flex-none">
               <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-4">
                 <Trophy className="w-6 h-6 text-yellow-400" /> ACHIEVEMENTS
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-3 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-3 pb-4 touch-pan-y overscroll-contain">
               {achievements.map(ach => (
                 <div 
                   key={ach.id}
@@ -769,13 +778,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
           </div>
         ) : activeTab === 'challenges' ? (
-          <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-pink-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
+          <div 
+            className="w-full flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-pink-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative"
+            style={{ maxHeight: 'calc(var(--app-height, 100vh) - 2.5rem)' }}
+          >
             <div className="p-6 pb-2 flex-none">
               <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-4">
                 <Calendar className="w-6 h-6 text-pink-400" /> DAILY CHALLENGES
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-3 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-3 pb-4 touch-pan-y overscroll-contain">
               {dailyChallenges.map(ch => (
                 <div 
                   key={ch.id}
@@ -808,13 +820,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
           </div>
         ) : activeTab === 'settings' ? (
-          <div className="w-full max-h-[85vh] flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative">
+          <div 
+            className="w-full flex flex-col bg-slate-900/80 backdrop-blur-xl rounded-3xl border border-slate-500/30 shadow-[0_0_50px_rgba(0,0,0,0.5)] animate-fade-in relative"
+            style={{ maxHeight: 'calc(var(--app-height, 100vh) - 2.5rem)' }}
+          >
             <div className="p-6 pb-2 flex-none">
               <h2 className="text-2xl font-black text-white flex items-center gap-2 italic mb-4">
                 <Settings className="w-6 h-6 text-slate-400" /> SETTINGS
               </h2>
             </div>
-            <div className="flex-1 overflow-y-auto px-6 space-y-3 pb-4">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 space-y-3 pb-4 touch-pan-y overscroll-contain">
               <div className="bg-slate-800/50 p-4 rounded-xl border border-white/5">
                 <div className="flex items-center justify-between">
                   <div>

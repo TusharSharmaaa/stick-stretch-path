@@ -499,7 +499,10 @@ function App() {
   const currentSkinColor = SKINS.find(s => s.id === currentSkinId)?.color || 'bg-red-500';
 
   return (
-    <div className="relative w-full h-full bg-[#050510] overflow-hidden font-sans fixed inset-0 touch-none select-none">
+    <div 
+      className="relative w-full h-full bg-[#050510] overflow-hidden font-sans fixed inset-0 touch-none select-none"
+      style={{ minHeight: 'var(--app-height, 100vh)', height: 'var(--app-height, 100vh)' }}
+    >
       
       {/* Game Content Container - Padded bottom for Banner */}
       <div className="absolute inset-0 bottom-[50px]">
