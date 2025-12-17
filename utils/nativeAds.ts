@@ -8,7 +8,7 @@ import {
   InterstitialAdPluginEvents,
   RewardAdPluginEvents,
 } from '@capacitor-community/admob';
-import { ADMOB_IDS } from './ads';
+import { ADMOB_IDS, AD_TESTING_MODE } from './ads';
 
 const isNativePlatform = typeof Capacitor.isNativePlatform === 'function'
   ? Capacitor.isNativePlatform()
@@ -23,7 +23,7 @@ const ensureInitialized = async () => {
 
   try {
     await AdMob.initialize({
-      initializeForTesting: true,
+      initializeForTesting: AD_TESTING_MODE,
     });
     initialized = true;
     return true;
@@ -66,7 +66,7 @@ export const mountBannerAd = async () => {
     adSize: BannerAdSize.ADAPTIVE_BANNER,
     position: BannerAdPosition.BOTTOM_CENTER,
     margin: 0,
-    isTesting: true,
+    isTesting: AD_TESTING_MODE,
   };
 
   try {
@@ -123,7 +123,7 @@ export const showNativeRewardedAd = async (): Promise<boolean> => {
 
       await AdMob.prepareRewardVideoAd({
         adId: ADMOB_IDS.REWARDED,
-        isTesting: true,
+        isTesting: AD_TESTING_MODE,
         immersiveMode: true,
       });
       await AdMob.showRewardVideoAd();
@@ -165,7 +165,7 @@ export const showNativeInterstitialAd = async (): Promise<boolean> => {
 
       await AdMob.prepareInterstitial({
         adId: ADMOB_IDS.INTERSTITIAL,
-        isTesting: true,
+        isTesting: AD_TESTING_MODE,
         immersiveMode: true,
       });
       await AdMob.showInterstitial();

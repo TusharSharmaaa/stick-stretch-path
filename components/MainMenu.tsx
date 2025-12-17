@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Play, ShoppingBag, Coins, Video, Lock, BarChart3, Trophy, Calendar, Settings, X, Sparkles, Shield, FileText, Star, ExternalLink } from 'lucide-react';
-import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS, PLAY_STORE_URL } from '../constants';
+import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS, PLAY_STORE_URL, PRIVACY_POLICY_URL, TERMS_URL } from '../constants';
 import { Achievement, GameStats, DailyChallenge, BoostInventory } from '../types';
 
 interface MainMenuProps {
@@ -141,14 +141,16 @@ const MainMenu: React.FC<MainMenuProps> = ({
       label: 'Privacy Policy',
       description: 'Understand how we handle your data.',
       icon: Shield,
-      mode: 'modal'
+      url: PRIVACY_POLICY_URL,
+      mode: 'external'
     },
     {
       id: 'terms',
       label: 'Terms & Conditions',
       description: 'Review the rules for using Stick Stretch Path.',
       icon: FileText,
-      mode: 'modal'
+      url: TERMS_URL,
+      mode: 'external'
     },
     {
       id: 'rate',

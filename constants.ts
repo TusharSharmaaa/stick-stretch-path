@@ -65,10 +65,10 @@ export const STICK_ROTATION_SAFETY_TIME = 1.2; // Seconds before force-stopping 
 export const AD_COIN_REWARD = 40;
 export const INITIAL_COINS = 0;
 
-// External links (update with live URLs when available)
-export const PRIVACY_POLICY_URL = 'https://example.com/privacy';
-export const TERMS_URL = 'https://example.com/terms';
-export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.example.stickstretch';
+// External links - These work both in-app and when hosted
+export const PRIVACY_POLICY_URL = '/privacy-policy.html';
+export const TERMS_URL = '/terms.html';
+export const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.stickstretch.game';
 
 // Shop / Skins
 export const SKINS: Skin[] = [
