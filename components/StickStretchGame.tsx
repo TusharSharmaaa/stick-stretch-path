@@ -40,7 +40,10 @@ import {
   PARTICLE_OFFSCREEN_MARGIN,
   FLOATING_TEXT_OFFSCREEN_MARGIN,
   DOUBLE_TAP_WINDOW,
-  STICK_ROTATION_SAFETY_TIME
+  STICK_ROTATION_SAFETY_TIME,
+  DIFFICULTY_PHASES,
+  WIDTH_REDUCTION_PER_LEVEL,
+  GAP_INCREASE_PER_LEVEL
 } from '../constants';
 import { startGrowSound, stopGrowSound, playStickHit, playSuccess, playFail, playCoin } from '../utils/audio';
 
@@ -382,16 +385,19 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
     // Standard Init
     const startX = 50;
+    const initialGap = 80 + Math.random() * 40; // Random gap between 80-120px
+    const secondPlatformWidth = 60 + Math.random() * 25; // Random width between 60-85px (thinner than first)
+    
     const firstPlatform: Platform = {
       id: 1,
       x: startX,
-      width: INITIAL_PLATFORM_WIDTH,
+      width: INITIAL_PLATFORM_WIDTH, // Starting platform is slightly wider for comfort
       isTarget: false,
     };
     const secondPlatform: Platform = {
       id: 2,
-      x: startX + INITIAL_PLATFORM_WIDTH + 100,
-      width: INITIAL_PLATFORM_WIDTH,
+      x: startX + INITIAL_PLATFORM_WIDTH + initialGap,
+      width: secondPlatformWidth, // Thinner target platform
       isTarget: true,
     };
 
@@ -456,42 +462,62 @@ const StickStretchGame: React.FC<StickStretchGameProps> = ({
 
   const spawnNextPlatform = () => {
     const lastPlatform = platformsRef.current[platformsRef.current.length - 1];
-    const difficulty = Math.floor(scoreRef.current / 5);
+    const score = scoreRef.current;
+    const difficultyLevel = Math.floor(score / 5);
     
-    // Better gap calculation - prevent impossible gaps
-    const gapBase = Math.min(MAX_GAP, MIN_GAP + Math.random() * 80 + (difficulty * 8));
-    const gap = Math.max(MIN_GAP, Math.min(MAX_GAP, gapBase + (Math.random() * 30 - 15)));
+    // Determine current difficulty phase based on score
+    let currentPhase = DIFFICULTY_PHASES.EASY;
+    if (score > DIFFICULTY_PHASES.HARD.maxScore) {
+      currentPhase = DIFFICULTY_PHASES.EXTREME;
+    } else if (score > DIFFICULTY_PHASES.MEDIUM.maxScore) {
+      currentPhase = DIFFICULTY_PHASES.HARD;
+    } else if (score > DIFFICULTY_PHASES.EASY.maxScore) {
+      currentPhase = DIFFICULTY_PHASES.MEDIUM;
+    }
     
-    let width = Math.max(MIN_PLATFORM_WIDTH, MAX_PLATFORM_WIDTH - (difficulty * 4));
+    // Progressive gap calculation - starts small, gets larger
+    // Base gap increases with difficulty, plus random variance
+    const baseGap = MIN_GAP + (difficultyLevel * GAP_INCREASE_PER_LEVEL);
+    const randomVariance = Math.random() * 60 - 20; // -20 to +40 variance
+    const gap = Math.max(MIN_GAP, Math.min(currentPhase.maxGap, baseGap + randomVariance));
+    
+    // Progressive width calculation - starts wide, gets thinner
+    // Width decreases with difficulty level
+    const baseWidth = MAX_PLATFORM_WIDTH - (difficultyLevel * WIDTH_REDUCTION_PER_LEVEL);
+    const widthVariance = Math.random() * 20 - 10; // -10 to +10 variance
+    let width = Math.max(currentPhase.minWidth, Math.min(MAX_PLATFORM_WIDTH, baseWidth + widthVariance));
+    
     let isMoving = false;
     let moveSpeed = 0;
     let moveAmplitude = 0;
     let platformType: PlatformType = 'normal';
     let coins = 0;
 
-    // Platform variety
-    if (scoreRef.current >= 5 && Math.random() < PLATFORM_VARIETY_CHANCE.coin) {
+    // Platform variety - special platforms are slightly narrower
+    if (score >= 5 && Math.random() < PLATFORM_VARIETY_CHANCE.coin) {
       platformType = 'coin';
       coins = Math.floor(Math.random() * 3) + 1;
-    } else if (scoreRef.current >= 10 && Math.random() < PLATFORM_VARIETY_CHANCE.ice) {
+    } else if (score >= 10 && Math.random() < PLATFORM_VARIETY_CHANCE.ice) {
       platformType = 'ice';
-      width = Math.max(MIN_PLATFORM_SIZE, width - ICE_PLATFORM_SIZE_REDUCTION); // Ice platforms are smaller
-    } else if (scoreRef.current >= 15 && Math.random() < PLATFORM_VARIETY_CHANCE.bouncy) {
+      width = Math.max(currentPhase.minWidth, width - ICE_PLATFORM_SIZE_REDUCTION);
+    } else if (score >= 15 && Math.random() < PLATFORM_VARIETY_CHANCE.bouncy) {
       platformType = 'bouncy';
-    } else if (scoreRef.current >= 20 && Math.random() < PLATFORM_VARIETY_CHANCE.breakable) {
+    } else if (score >= 20 && Math.random() < PLATFORM_VARIETY_CHANCE.breakable) {
       platformType = 'breakable';
     }
 
-    if (scoreRef.current >= 5 && Math.random() < 0.3) {
-      width = Math.max(MIN_PLATFORM_SIZE, width - NARROW_PLATFORM_SIZE_REDUCTION);
-    } else {
-      width = Math.max(MIN_PLATFORM_WIDTH, width + (Math.random() * 15 - 7.5));
+    // Extra narrow platforms become more common at higher scores
+    const narrowChance = Math.min(0.5, 0.1 + (score / 100)); // 10% at start, up to 50%
+    if (score >= 5 && Math.random() < narrowChance) {
+      width = Math.max(currentPhase.minWidth, width - NARROW_PLATFORM_SIZE_REDUCTION);
     }
 
-    if (scoreRef.current >= 20 && Math.random() < 0.2) {
+    // Moving platforms start at score 20, become more common
+    const movingChance = Math.min(0.4, (score - 20) / 100); // 0% until score 20, then increases
+    if (score >= 20 && Math.random() < movingChance) {
       isMoving = true;
-      moveSpeed = 40;
-      moveAmplitude = 35;
+      moveSpeed = 40 + Math.min(30, difficultyLevel * 3); // Faster movement at higher levels
+      moveAmplitude = 35 + Math.min(25, difficultyLevel * 2); // Wider movement at higher levels
     }
 
     const baseX = lastPlatform.x + lastPlatform.width + gap;

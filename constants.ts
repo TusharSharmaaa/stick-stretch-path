@@ -15,16 +15,26 @@ export const PARTICLE_GRAVITY = 800;
 export const PARTICLE_DRAG = 2.0;
 
 // Level Generation
-export const MIN_GAP = 40;
-export const MAX_GAP = 300;
-export const MIN_PLATFORM_WIDTH = 70; // Increased from 60
-export const MAX_PLATFORM_WIDTH = 150; // Increased from 120
-export const INITIAL_PLATFORM_WIDTH = 110; // Increased from 100
-export const PLATFORM_HEIGHT = 280; // Increased from 220 for bigger blocks
+export const MIN_GAP = 60;
+export const MAX_GAP = 350;
+export const MIN_PLATFORM_WIDTH = 35; // Minimum width for hardest platforms (very thin)
+export const MAX_PLATFORM_WIDTH = 90; // Starting width (smaller now)
+export const INITIAL_PLATFORM_WIDTH = 80; // First platform width (reduced from 130)
+export const PLATFORM_HEIGHT = 280; // Platform height
 
 // Difficulty Scaling
 export const DIFFICULTY_STEP = 5; // Every 5 points, increase difficulty
 export const GAP_VARIANCE_INCREASE = 20;
+
+// Progressive Difficulty Settings
+export const WIDTH_REDUCTION_PER_LEVEL = 6; // How much narrower platforms get per difficulty level
+export const GAP_INCREASE_PER_LEVEL = 18; // How much gap increases per difficulty level
+export const DIFFICULTY_PHASES = {
+  EASY: { maxScore: 5, minWidth: 70, maxGap: 130 },       // Thinner blocks from start
+  MEDIUM: { maxScore: 15, minWidth: 55, maxGap: 200 },   // Even thinner, bigger gaps
+  HARD: { maxScore: 30, minWidth: 45, maxGap: 280 },     // Thin blocks, large gaps
+  EXTREME: { maxScore: Infinity, minWidth: 35, maxGap: 350 } // Very thin, maximum gaps
+};
 
 // Dimensions
 export const PLAYER_SIZE = 30;
