@@ -356,9 +356,9 @@ const MainMenu: React.FC<MainMenuProps> = ({
             </div>
 
             {/* Header Container (Fixed) */}
-            <div className="p-4 pb-2 flex-none">
-                <div className="flex justify-between items-center mb-3 mt-1">
-                <h2 className="text-xl font-black text-white flex items-center gap-2 italic">
+            <div className="pt-10 px-4 pb-2 flex-none">
+                <div className="flex justify-between items-center mb-3">
+                <h2 className="text-xl font-black text-white flex items-center gap-2 italic leading-tight">
                     <ShoppingBag className="w-5 h-5 text-yellow-400" /> SHOP
                 </h2>
                 <div className="bg-black/50 px-3 py-1 rounded-lg border border-yellow-500/30 flex items-center gap-2">
