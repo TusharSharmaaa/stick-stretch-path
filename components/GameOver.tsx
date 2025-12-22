@@ -13,6 +13,37 @@ interface GameOverProps {
 const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, onWatchAd }) => {
   // Local state removed, controlled by parent App.tsx now via onWatchAd
 
+  const handleShare = async () => {
+    const message = `I scored ${score} points in Stick Stretch Path! Can you beat my score?`;
+    const url = window.location.href;
+
+    try {
+      const shareData = {
+        title: 'Stick Stretch Path',
+        text: message,
+        url,
+      };
+
+      // Web Share API (modern browsers over HTTPS)
+      if (navigator.share) {
+        await navigator.share(shareData);
+        return;
+      }
+
+      // Fallback: copy to clipboard where available and secure
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(message);
+        alert('Score copied to clipboard!');
+        return;
+      }
+
+      // Final fallback: simple alert so user can manually copy
+      alert(message);
+    } catch {
+      // User cancelled or an error occurred - silently fail
+    }
+  };
+
   return (
     <div 
       className="absolute inset-0 bg-[#050510]/95 z-20 backdrop-blur-xl flex flex-col items-center justify-center p-6 animate-fade-in overflow-y-auto overscroll-contain pt-[env(safe-area-inset-top)] pb-[env(safe-area-inset-bottom)] touch-pan-y"
@@ -89,25 +120,7 @@ const GameOver: React.FC<GameOverProps> = ({ score, bestScore, onRetry, onHome, 
               </div>
             </button>
             <button
-              onClick={async () => {
-                const shareData = {
-                  title: 'Stick Stretch Path',
-                  text: `I scored ${score} points! Can you beat my score?`,
-                  url: window.location.href,
-                };
-                try {
-                  if (navigator.share) {
-                    await navigator.share(shareData);
-                  } else {
-                    // Fallback: copy to clipboard
-                    await navigator.clipboard.writeText(`I scored ${score} points in Stick Stretch Path! Can you beat my score?`);
-                    alert('Score copied to clipboard!');
-                  }
-                } catch (err) {
-                  // User cancelled or error occurred - silently fail
-                  // Share API failures are expected and don't need logging
-                }
-              }}
+              onClick={handleShare}
               className="h-12 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-lg transform -skew-x-12 font-bold text-slate-300 hover:text-white transition-colors flex items-center justify-center"
             >
               <div className="transform skew-x-12 flex items-center gap-2">
