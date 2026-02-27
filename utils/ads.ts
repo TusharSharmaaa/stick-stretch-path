@@ -1,6 +1,6 @@
 // ==================== AdMob Configuration ====================
-// Set to false when you have real AdMob IDs for production release
-export const AD_TESTING_MODE = true;
+// Set to true while developing, false for real AdMob in production
+export const AD_TESTING_MODE = false;
 
 // Google AdMob Test IDs (Android) - Use these during development
 const TEST_ADMOB_IDS = {
@@ -12,18 +12,15 @@ const TEST_ADMOB_IDS = {
   NATIVE: 'ca-app-pub-3940256099942544/2247696110'
 };
 
-// Production AdMob IDs - Replace with your real IDs from AdMob Console
-// To get these IDs:
-// 1. Go to https://admob.google.com
-// 2. Create an app and ad units
-// 3. Copy the IDs here
 const PRODUCTION_ADMOB_IDS = {
-  APP_ID: 'ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX',        // Replace with your App ID
-  BANNER: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',        // Replace with Banner Ad Unit ID
-  INTERSTITIAL: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',  // Replace with Interstitial Ad Unit ID
-  REWARDED: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX',      // Replace with Rewarded Ad Unit ID
-  REWARDED_INTERSTITIAL: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX', // Optional
-  NATIVE: 'ca-app-pub-XXXXXXXXXXXXXXXX/XXXXXXXXXX'         // Optional
+  // TODO: Paste your real production IDs from the AdMob console
+  // Example values (do NOT use these – use your own from the screenshot / console):
+  APP_ID: 'ca-app-pub-XXXXXXXXXXXXXXXX~XXXXXXXXXX',
+  BANNER: 'ca-app-pub-XXXXXXXXXXXXXXXX/BBBBBBBBBB',
+  INTERSTITIAL: 'ca-app-pub-XXXXXXXXXXXXXXXX/IIIIIIIIII',
+  REWARDED: 'ca-app-pub-XXXXXXXXXXXXXXXX/RRRRRRRRRR',
+  REWARDED_INTERSTITIAL: 'ca-app-pub-XXXXXXXXXXXXXXXX/WWWWWWWWWW',
+  NATIVE: 'ca-app-pub-XXXXXXXXXXXXXXXX/NNNNNNNNNN'
 };
 
 // Export the appropriate IDs based on mode

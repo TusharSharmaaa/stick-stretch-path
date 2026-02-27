@@ -448,15 +448,22 @@ function App() {
     const newDeaths = deathCount + 1;
     setDeathCount(newDeaths);
 
-    // Show Interstitial if threshold met
-    if (newDeaths % AD_CONFIG.INTERSTITIAL_INTERVAL === 0) {
-       setTimeout(() => {
-           showAd('INTERSTITIAL', () => {
-               setGameState(GameState.GAME_OVER);
-           });
-       }, 800);
+    // Only consider automatic interstitials after meaningful runs,
+    // and keep them sparse so users aren't spammed:
+    // - Require at least a small score
+    // - Show at most once every AD_CONFIG.INTERSTITIAL_INTERVAL deaths
+    const shouldCountForInterstitial = finalScore >= 5;
+    const shouldShowAutoInterstitial =
+      shouldCountForInterstitial && newDeaths % AD_CONFIG.INTERSTITIAL_INTERVAL === 0;
+
+    if (shouldShowAutoInterstitial) {
+      setTimeout(() => {
+        showAd('INTERSTITIAL', () => {
+          setGameState(GameState.GAME_OVER);
+        });
+      }, 800);
     } else {
-       setGameState(GameState.GAME_OVER);
+      setGameState(GameState.GAME_OVER);
     }
     setActiveBoosts([]);
   };
