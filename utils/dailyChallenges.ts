@@ -25,9 +25,15 @@ export const generateDailyChallenges = (): DailyChallenge[] => {
     // If all expired or none valid, generate new ones
   }
   
-  // Pick 3 random challenges
-  const shuffled = [...CHALLENGE_TEMPLATES].sort(() => Math.random() - 0.5);
-  const selected = shuffled.slice(0, 3);
+  // Pick 3 random challenges using Fisher–Yates shuffle for unbiased randomness
+  const pool = [...CHALLENGE_TEMPLATES];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    const tmp = pool[i];
+    pool[i] = pool[j];
+    pool[j] = tmp;
+  }
+  const selected = pool.slice(0, 3);
   
   const challenges: DailyChallenge[] = selected.map((ch, i) => ({
     id: `daily_${Date.now()}_${i}`,

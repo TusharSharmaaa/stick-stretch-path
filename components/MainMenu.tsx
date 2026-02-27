@@ -351,7 +351,7 @@ const MainMenu: React.FC<MainMenuProps> = ({
           >
             
             {/* Modal Badge */}
-            <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-black px-4 py-1 rounded-full border border-cyan-500 text-cyan-400 text-xs font-bold tracking-widest uppercase shadow-[0_0_15px_rgba(34,211,238,0.5)] z-20">
+            <div className="absolute top-2 left-1/2 -translate-x-1/2 bg-black px-4 py-1 rounded-full border border-cyan-500 text-cyan-400 text-xs font-bold tracking-widest uppercase shadow-[0_0_15px_rgba(34,211,238,0.5)] z-20">
               Themes
             </div>
 

@@ -64,7 +64,8 @@ export const checkAchievements = (
   
   // Perfect 10 in one game
   if (currentGame.perfects >= 10) {
-    updates.push({ id: 'perfect_10', progress: 10 });
+    // Track the actual number of perfects, capped at the achievement target
+    updates.push({ id: 'perfect_10', progress: currentGame.perfects });
   }
   
   // Total perfects

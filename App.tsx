@@ -28,7 +28,7 @@ import {
   saveShopDealsUnlocked
 } from './utils/storage';
 import { SKINS, AD_COIN_REWARD, SHOP_BOOSTS } from './constants';
-import { initAudio, startBackgroundMusic, stopBackgroundMusic, setSoundEnabled } from './utils/audio';
+import { initAudio, startBackgroundMusic, stopBackgroundMusic, setSoundEnabled, cleanupAudio } from './utils/audio';
 import { initializeAchievements, checkAchievements } from './utils/achievements';
 import { generateDailyChallenges } from './utils/dailyChallenges';
 import { 
@@ -96,6 +96,8 @@ function App() {
     return () => {
       notificationTimers.current.forEach(timer => window.clearTimeout(timer));
       notificationTimers.current = [];
+      // Ensure audio context and timers are cleaned up on unmount
+      cleanupAudio();
     };
   }, []);
 

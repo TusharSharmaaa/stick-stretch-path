@@ -22,3 +22,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Android keystore files (NEVER commit these!)
+*.keystore
+keystore.properties
+android/keystore.properties
+android/app/*.keystore
